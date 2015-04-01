@@ -1,0 +1,53 @@
+## external commands ###
+
+### explore ###
+- run explorers and write their values to stdout
+
+#### usage ####
+cdist explore
+- run all global explorers on localhost and print the name and value to stdout
+   e.g.
+hostname: foobar
+os: archlinux
+cpu_cores: 2
+
+cdist explore target.example.com
+- same thing but for remote target
+
+cdist explorer --explorer hostname --explorer os target.example.com
+cdist explorer --explorer hostname,os,os_version target.example.com
+- run only the given explorers instead of all of them
+
+
+### config ###
+- configure one or more target machines
+
+### install ###
+- install one or more target machines
+
+### deploy ###
+- deploy application to target machine
+- think capistrano or fabric
+
+
+## internal commands ##
+Only available from within cdist types.
+Additional to external commands.
+
+
+### log ###
+- log a message with a given level, e.g.
+   cdist log debug rest of args is message
+   cdist log info currently doing this and that
+
+### in-order ###
+Nicer way to do what is currently done by the freaking ugly
+   export CDIST_ORDER_DEPENDENCY=on
+
+e.g.
+cdist in-order start
+__type_a
+...
+_type_b
+cdist in-order stop
+

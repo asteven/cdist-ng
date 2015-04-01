@@ -1,0 +1,40 @@
+== what's in a session dir ==
+/path/to/session-dir/
+   runtime/    # the cdist runtime used within this session
+      bin/              # links to type emulator
+      conf/             # merged view of all conf dirs
+         explorer/      # folder with global explorers
+            # accessed as absolut path
+            # copied to target_host and executed as shell scripts
+         file/          # folder with local files, accessed as path
+            # accessed directly by types (manifest, gencode-*) as $__file
+         manifest/      # folder with initial manifests, accessed as path
+            # accessed directly by types (manifest, gencode-*) as $__manifest
+         transport/     # folder with remote exec/copy scripts implementing transport protocols
+            # accessed as path
+            # scripts in subfolders symlinked into ./transport-stack/
+         type/          # folder with types, accessed as list of cdist-types
+      conf-dirs         # list of conf dirs used to populate ./conf, accessed as list
+      initial-manifest  # the initial manifest used when running
+            # run by cdist as initial manifest
+   targets/    # one or more cdist target contexts
+      target1/
+         explorer/         # result of running global explorers
+               # accessed directly by types (manifest, gencode-*) as $__explorer
+         messages          # messages emitted by types during inter type communication
+            # a copy of this is used by types as $__messages_in
+         object/           # instances of types, accessed as a list of cdist-objects
+         target/           # the result of parsing the given target-uri, accessed as string by manifests and types
+            scheme         # as $__target_scheme
+            authority      # not used/exported
+            user           # as $__target_user
+            host           # as $__target_host
+            port           # as $__target_port
+            path           # as $__target_path
+            query          # not used/exported
+            fragment       # not used/exported
+         transport/  # the stack of transports used to interact with the target host
+      target2/
+         ...
+
+

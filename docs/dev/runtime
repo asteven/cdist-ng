@@ -1,0 +1,87 @@
+== cdist runtime environent ==
+- data that is shared between different targets
+
+
+== what's in a conf dir ==
+/path/to/cdist-conf-dir/
+   explorer
+   file
+   manifest
+   type
+   transport
+
+
+== what's in a runtime dir ==
+/tmp/cdist-runtime-dir/
+   bin/              # links to type emulator
+   conf/             # merged view of all conf dirs
+      explorer/      # folder with global explorers
+         # accessed as absolut path
+         # copied to target_host and executed as shell scripts
+      file/          # folder with local files, accessed as path
+         # accessed directly by types (manifest, gencode-*) as $__file
+      manifest/      # folder with initial manifests, accessed as path
+         # accessed directly by types (manifest, gencode-*) as $__manifest
+      transport/     # folder with remote exec/copy scripts implementing transport protocols
+         # accessed as path
+         # scripts in subfolders symlinked into ./transport-stack/
+      type/          # folder with types, accessed as list of cdist-types
+   conf-dirs         # list of conf dirs used to populate ./conf, accessed as list
+   initial-manifest  # the initial manifest used when running
+         # run by cdist as initial manifest
+
+
+--------------------------------------------------------------------------------
+
+== example usage ==
+
+import os
+import tempfile
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+
+# create new runtime and populate it
+from cdist import runtime
+rt = runtime.Runtime()
+rt.add_conf_dir(os.path.expanduser('~/.cdist'))
+
+# serialize to directory
+tmpdir = tempfile.mkdtemp()
+rt.to_dir(tmpdir)
+print(tmpdir)
+
+# create new target based on target-url and runtime
+from cdist import target
+url = 'ssh+sudo+chroot://root@netboot-dev.ethz.ch/local/nfsroot/preos'
+t = target.Target(rt, url)
+# serialize to directory
+t.to_dir(tmpdir)
+
+
+# load runtime from directory
+del rt
+rt = runtime.Runtime.from_dir(tmpdir)
+
+# load target from directory
+del t
+t = target.Target.from_dir(rt, tmpdir)
+
+--------------------------------------------------------------------------------
+
+import os
+from cdist import session
+s = session.Session()
+s.add_conf_dir(os.path.expanduser('~/.cdist'))
+url = 'ssh+sudo+chroot://root@netboot-dev.ethz.ch/local/nfsroot/preos'
+s.add_target(url)
+
+import tempfile
+tmpdir = tempfile.mkdtemp()
+print(tmpdir)
+s.to_dir(tmpdir)
+
+s2 = session.Session.from_dir(tmpdir)
+
+assert s == s2
+assert s.runtime == s2.runtime
+assert s.targets == s2.targets

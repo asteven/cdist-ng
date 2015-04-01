@@ -1,0 +1,46 @@
+## execute shell script ##
+
+### locally ###
+- set default file permisisons using umask (os.umask(0o077))
+- create local directory
+- remove local directory
+- run shell script (/bin/sh -e)
+   - setup environment in python (os.environ)
+- run executable
+   - setup environment in python (os.environ)
+
+
+### remotely ###
+- create remote directory
+- remove remote directory
+- run shell script (/bin/sh -e)
+   - setup environment by prepending key=value pairs before the command
+- run executable
+   - setup environment by prepending key=value pairs before the command
+
+
+### conclusion ###
+The only differences between running locally vs remotely are:
+- how environment variables are passed
+- how directories are created and removed
+
+
+### plan ###
+Create a generic 'task' that holds the environment and the code to execute.
+Have a execution engine for local and another one for remote tasks.
+A task should be aware that if it has been run or not.
+Running it again should be a noop.
+
+--------------------------------------------------------------------------------
+
+## use case: global explorers ##
+input:
+- dict of explorer name -> executable pairs
+
+output:
+- dict of explorer name -> output of running explorer pairs
+
+sequence:
+- transfer all global explorers in parallel
+- run all global explorers in parallel
+- save result of running global explorers to target dir

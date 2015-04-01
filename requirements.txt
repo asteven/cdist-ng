@@ -1,0 +1,2 @@
+click
+git+git://github.com/asteven/cconfig.git#egg=cconfig

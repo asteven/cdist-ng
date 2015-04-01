@@ -1,0 +1,46 @@
+### local file locations ###
+# @see http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
+config files in ~/.config/cdist/
+cache in ~/.cache/cdist/
+
+: ${XDG_DATA_HOME:=$HOME/.local/share}
+: ${XDG_CONFIG_HOME:=$HOME/.config}
+: ${XDG_CACHE_HOME:=$HOME/.cache}
+
+### remote file locations for config ###
+/etc/cdist
+/var/cache/cdist
+/var/lib/cdist
+
+### remote file locations for deploy ###
+Same as local file locations but on the target host
+
+
+--------------------------------------------------------------------------------
+
+session: represent a single cdist invocation
+
+runtime: the environment used within a session
+   - one for each session
+   - shared among all targets
+
+target: the information related to a single target
+   - one for each target
+
+context: the target context groups all relevant information to work on a target
+   - the runtime instance
+   - the target instance
+   - file system paths to:
+      - the target instance
+      - local cache dir
+      - remote cache dir
+
+--------------------------------------------------------------------------------
+
+- master process creates a session
+- populates a runtime
+- then forks a worker for each target
+- each worker uses multiple asyncio coroutines to get the job done
+- stdout and stderr of each subprocess are saved to disk
+- logs are streamed to stdout or stderr
+
