@@ -1,22 +1,31 @@
+== what's in a conf dir ==
+/path/to/cdist-conf-dir/
+   explorer
+   file
+   manifest
+   type
+   transport
+
+
 == what's in a session dir ==
 /path/to/session-dir/
-   runtime/    # the cdist runtime used within this session
-      bin/              # links to type emulator
-      conf/             # merged view of all conf dirs
-         explorer/      # folder with global explorers
-            # accessed as absolut path
-            # copied to target_host and executed as shell scripts
-         file/          # folder with local files, accessed as path
-            # accessed directly by types (manifest, gencode-*) as $__file
-         manifest/      # folder with initial manifests, accessed as path
-            # accessed directly by types (manifest, gencode-*) as $__manifest
-         transport/     # folder with remote exec/copy scripts implementing transport protocols
-            # accessed as path
-            # scripts in subfolders symlinked into ./transport-stack/
-         type/          # folder with types, accessed as list of cdist-types
-      conf-dirs         # list of conf dirs used to populate ./conf, accessed as list
-      initial-manifest  # the initial manifest used when running
-            # run by cdist as initial manifest
+   bin/              # links to type emulator
+   conf/             # merged view of all conf dirs
+      explorer/      # folder with global explorers
+         # accessed as absolut path
+         # copied to target_host and executed as shell scripts
+      file/          # folder with local files, accessed as path
+         # accessed directly by types (manifest, gencode-*) as $__file
+      manifest/      # folder with initial manifests, accessed as path
+         # accessed directly by types (manifest, gencode-*) as $__manifest
+      transport/     # folder with remote exec/copy scripts implementing transport protocols
+         # accessed as path
+         # scripts in subfolders symlinked into ./targets/*/transport/
+      type/          # folder with types, accessed as list of cdist-types
+   conf-dirs         # list of conf dirs used to populate ./conf, accessed as list
+   initial-manifest  # the initial manifest used when running
+         # run by cdist as initial manifest
+
    targets/    # one or more cdist target contexts
       target1/
          explorer/         # result of running global explorers
@@ -38,3 +47,27 @@
          ...
 
 
+--------------------------------------------------------------------------------
+
+== example usage ==
+
+import os
+import tempfile
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+
+from cdist import session
+s = session.Session()
+s.add_conf_dir(os.path.expanduser('~/.cdist'))
+url = 'ssh+sudo+chroot://root@netboot-dev.ethz.ch/local/nfsroot/preos'
+s.add_target(url)
+
+import tempfile
+session_dir = tempfile.mkdtemp(prefix='cdist-session-')
+print(session_dir)
+s.to_dir(session_dir)
+
+s2 = session.Session.from_dir(session_dir)
+
+assert s == s2
+assert s.targets == s2.targets

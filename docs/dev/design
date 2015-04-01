@@ -19,16 +19,13 @@ Same as local file locations but on the target host
 --------------------------------------------------------------------------------
 
 session: represent a single cdist invocation
-
-runtime: the environment used within a session
-   - one for each session
    - shared among all targets
 
 target: the information related to a single target
    - one for each target
 
 context: the target context groups all relevant information to work on a target
-   - the runtime instance
+   - the session instance
    - the target instance
    - file system paths to:
       - the target instance

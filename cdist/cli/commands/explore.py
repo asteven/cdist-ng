@@ -78,13 +78,13 @@ def main(ctx, explorer, target):
     log.debug('session_dir: {0}'.format(_session_dir))
     _session.to_dir(_session_dir)
 
-    explorer_path = os.path.join(_session_dir, 'runtime/conf/explorer')
+    explorer_path = os.path.join(_session_dir, 'conf/explorer')
     os.environ['__explorer'] = explorer_path
 
     loop = asyncio.get_event_loop()
     mode = 'shell'
     tasks = []
-    for name,executable in _session.runtime['conf']['explorer'].items():
+    for name,executable in _session['conf']['explorer'].items():
         if explorer and name not in explorer:
             continue
         task = asyncio.async(run_code(mode,[executable]))

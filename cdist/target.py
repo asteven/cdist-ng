@@ -28,8 +28,6 @@ log = logging.getLogger(__name__)
 
 import cconfig
 
-import cdist.runtime
-
 
 class TransportStackType(cconfig.schema.CconfigType):
     _type = 'transport-stack'
@@ -87,11 +85,10 @@ class Target(dict):
     schema = cconfig.Schema(schema_decl)
 
     @classmethod
-    def from_dir(cls, runtime, path):
-        """Creates a cdist target instance from an existing
-        directory.
+    def from_dir(cls, path):
+        """Creates a cdist target instance from an existing directory.
         """
-        obj = cls(runtime)
+        obj = cls()
         return cconfig.from_dir(path, obj=obj, schema=obj.schema)
 
     def to_dir(self, path):
@@ -99,9 +96,9 @@ class Target(dict):
         """
         cconfig.to_dir(path, self, schema=self.schema)
 
-    def __init__(self, runtime, target=None):
+    def __init__(self, transports=None, target=None):
         super().__init__(cconfig.from_schema(self.schema))
-        self.runtime = runtime
+        self.available_transports = transports
         if target:
             self.set_target(target)
 
@@ -128,7 +125,7 @@ class Target(dict):
             target['host'] = pr.path
             target['path'] = None
         self['target'] = target
-        self['transport'] = [self.runtime['conf']['transport'][key] for key in self.transports]
+        self['transport'] = [self.available_transports[key] for key in self.transports]
 
     @property
     def identifier(self):

@@ -28,24 +28,74 @@ log = logging.getLogger(__name__)
 
 import cconfig
 
-import cdist.runtime
 import cdist.target
 
 
-class CdistRuntimeType(cconfig.schema.CconfigType):
-    _type = 'cdist-runtime'
+class ListOfSymlinkTargets(cconfig.schema.CconfigType):
+    _type = 'list-of-symlink-targets'
 
     def from_path(self, path):
-        return cdist.runtime.Runtime.from_dir(path)
+        _list = []
+        try:
+            for item in os.listdir(path):
+                _list.append(os.readlink(item))
+        except EnvironmentError:
+            pass
+        finally:
+            return _list
 
-    def to_path(self, path, runtime):
-        runtime.to_dir(path)
+    def to_path(self, path, _list):
+        cwd = os.getcwd()
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        os.chdir(path)
+        for source in _list:
+            destination = os.path.basename(source)
+            os.symlink(source, destination)
+        os.chdir(cwd)
+
+
+class MappingOfSymlinkTargets(cconfig.schema.CconfigType):
+    _type = 'mapping-of-symlink-targets'
+
+    def from_path(self, path):
+        cwd = os.getcwd()
+        mapping = {}
+        try:
+            os.chdir(path)
+            for key in os.listdir(path):
+                mapping[key] = os.readlink(key)
+        except EnvironmentError:
+            pass
+        finally:
+            os.chdir(cwd)
+            return mapping
+
+    def to_path(self, path, mapping):
+        cwd = os.getcwd()
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        os.chdir(path)
+        for key, link in mapping.items():
+            os.symlink(link, key)
+        os.chdir(cwd)
+
 
 
 class Session(dict):
     schema_decl = (
         # path, type, subschema
+        ('bin', 'mapping-of-symlink-targets'),
+        ('conf', 'mapping', (
+            ('explorer', 'mapping-of-symlink-targets'),
+            ('file', 'mapping-of-symlink-targets'),
+            ('manifest', 'mapping-of-symlink-targets'),
+            ('transport', 'mapping-of-symlink-targets'),
+            ('type', 'mapping-of-symlink-targets'),
+        )),
         ('conf-dirs', list),
+        ('exec-path', str),
+        ('remote-cache-dir', str),
         ('session-id', str),
     )
     schema = cconfig.Schema(schema_decl)
@@ -55,18 +105,14 @@ class Session(dict):
         """Creates a cdist session instance from an existing
         directory.
         """
-        # assume nested runtime directory
-        runtime_path = os.path.join(path, 'runtime')
-        runtime = cdist.runtime.Runtime.from_dir(runtime_path)
-
-        obj = cls(runtime)
+        obj = cls()
         obj = cconfig.from_dir(path, obj=obj, schema=obj.schema)
 
         # assume nested targets directory
         targets_base_path = os.path.join(path, 'targets')
         for identifier in os.listdir(targets_base_path):
             target_path = os.path.join(targets_base_path, identifier)
-            target = cdist.target.Target.from_dir(runtime, target_path)
+            target = cdist.target.Target.from_dir(target_path)
             obj.targets.append(target)
 
         return obj
@@ -75,37 +121,50 @@ class Session(dict):
         """Store this session instance in a directory for use by shell scripts.
         """
         cconfig.to_dir(path, self, schema=self.schema)
-        runtime_path = os.path.join(path, 'runtime')
-        self.runtime.to_dir(runtime_path)
-        # TODO: save targets to dir
-        # TODO: what to use as target name for creating the folder
-        #   hostname will not work for chroot or local folders
+
         targets_base_path = os.path.join(path, 'targets')
         os.mkdir(targets_base_path)
         for target in self.targets:
             target_path = os.path.join(targets_base_path, target.identifier)
             target.to_dir(target_path)
 
-    def __init__(self, runtime=None, targets=None):
+    def __init__(self, targets=None):
         super().__init__(cconfig.from_schema(self.schema))
         self['session-id'] = time.strftime('%Y-%m-%d-%H:%M:%S-{0}-{1}'.format(
             socket.getfqdn(), os.getpid())
         )
         self['exec-path'] = '/path/to/bin/cdist'
-        remote_cache_dir = os.path.join('/var/cache/cdist', self['session-id'])
-        self.runtime = runtime or cdist.runtime.Runtime(remote_cache_dir=remote_cache_dir, exec_path=self['exec-path'])
+        self['remote-cache-dir'] = os.path.join('/var/cache/cdist', self['session-id'])
         self.targets = targets or []
 
     def add_conf_dir(self, conf_dir):
-        """Add a conf dir to this sessions runtime environment.
+        """Add a conf dir to this session.
+
+        Merges the explorer, manifest, type and other sub directories in the
+        given conf_dir with the allready known ones.
         """
         if conf_dir in self['conf-dirs']:
             return
         self['conf-dirs'].append(conf_dir)
-        self.runtime.add_conf_dir(conf_dir)
+
+        # Collect and merge conf dirs
+        for sub_dir in self.schema['conf'].schema.keys():
+            current_dir = os.path.join(conf_dir, sub_dir)
+            # Allow conf dirs to contain only partial content
+            if not os.path.exists(current_dir):
+                continue
+            for entry in os.listdir(current_dir):
+                source = os.path.abspath(os.path.join(conf_dir, sub_dir, entry))
+                self['conf'].setdefault(sub_dir, {})
+                self['conf'][sub_dir][entry] = source
+
+        # Link emulator to types
+        source = os.path.abspath(self['exec-path'])
+        for _type_name in self['conf']['type'].keys():
+            self['bin'][_type_name] = source
 
     def add_target(self, target_url):
         """Add a target which will be processed as part of this session.
         """
-        target = cdist.target.Target(self.runtime, target_url)
+        target = cdist.target.Target(self['conf']['transport'], target_url)
         self.targets.append(target)
