@@ -34,6 +34,9 @@ import cdist.target
 class ListOfSymlinkTargets(cconfig.schema.CconfigType):
     _type = 'list-of-symlink-targets'
 
+    def from_schema(self):
+        return []
+
     def from_path(self, path):
         _list = []
         try:
@@ -57,6 +60,9 @@ class ListOfSymlinkTargets(cconfig.schema.CconfigType):
 
 class MappingOfSymlinkTargets(cconfig.schema.CconfigType):
     _type = 'mapping-of-symlink-targets'
+
+    def from_schema(self):
+        return {}
 
     def from_path(self, path):
         cwd = os.getcwd()
