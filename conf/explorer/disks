@@ -1,0 +1,5 @@
+#!/bin/sh
+# retreive a list of all disks
+
+# get names of (hopefully) all disks
+([ -e /proc/partitions ] && grep -E '[shv]d[a-z]+$' /proc/partitions | awk '{print $4}' | sort) || true
