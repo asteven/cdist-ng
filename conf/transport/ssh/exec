@@ -1,0 +1,17 @@
+#!/bin/sh
+
+context=$(cd "${0%/*}"; pwd -P)
+
+log() {
+   echo "$@" >&2
+}
+
+log "-----"
+log "context: $context"
+log "@: $@"
+log "__target_user: $__target_user"
+log "__target_host: $__target_host"
+
+set -x
+exec ssh -o User=$__target_user -q "$__target_host" "$@"
+#echo "$@" | /bin/sh

@@ -1,0 +1,18 @@
+#!/bin/sh
+
+context=$(cd "${0%/*}"; pwd -P)
+parent="${context}/.."
+
+log() {
+   echo "$@" >&2
+}
+
+log "-----"
+log "context: $context"
+log "parent: $parent"
+log "@: $@"
+
+# escape ' with '"'"'
+code="$(echo "$@" | sed -e "s/'/'\"'\"'/g")"
+# pass the execution up the stack
+exec "$parent/$mode" "sudo sh -c '$code'"
