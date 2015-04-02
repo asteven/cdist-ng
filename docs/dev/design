@@ -32,10 +32,13 @@ context: the target context groups all relevant information to work on a target
       - local cache dir
       - remote cache dir
 
+
+runtime: the cdist runtime implements the core functionality for interacting with the targets
+   - one for each context
+
 --------------------------------------------------------------------------------
 
 - master process creates a session
-- populates a runtime
 - then forks a worker for each target
 - each worker uses multiple asyncio coroutines to get the job done
 - stdout and stderr of each subprocess are saved to disk

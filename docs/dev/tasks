@@ -1,107 +1,73 @@
-class RemoteExecutor(object):
-    """What does this need to get the job done?
-
-    - remote cache dir + session-id
-    - /path/to/
-    """
-    def __init__(self):
-        pass
-
-
-class GlobalExplorers(object):
-
-    def __init__(self, explorers):
-        self._explorers = explorers
-        self._results = None
-
-    @asyncio.coroutine
-    def run(self):
-        if not self._results:
-            yield from self._transfer()
-            results = yield from self._execute()
-            self._results = results
-        return self._results
-
-    @asyncio.coroutine
-    def _transfer(self):
-        # copy all global explorers to target
-        pass
-
-    @asyncio.coroutine
-    def _execute(self):
-        # run all global explorers on target and get output
-        pass
-
-
-from cdist.tasks import GlobalExplorers
-
-explorers = {'cpu_cores': '/home/sar/vcs/cdist/cdist/conf/explorer/cpu_cores',
- 'cpu_sockets': '/home/sar/vcs/cdist/cdist/conf/explorer/cpu_sockets',
- 'disks': '/home/sar/.cdist/explorer/disks',
- 'hostname': '/home/sar/vcs/cdist/cdist/conf/explorer/hostname',
- 'interfaces': '/home/sar/vcs/cdist/cdist/conf/explorer/interfaces',
- 'lsb_codename': '/home/sar/vcs/cdist/cdist/conf/explorer/lsb_codename',
- 'lsb_description': '/home/sar/vcs/cdist/cdist/conf/explorer/lsb_description',
- 'lsb_id': '/home/sar/vcs/cdist/cdist/conf/explorer/lsb_id',
- 'lsb_release': '/home/sar/vcs/cdist/cdist/conf/explorer/lsb_release',
- 'machine': '/home/sar/vcs/cdist/cdist/conf/explorer/machine',
- 'machine_type': '/home/sar/vcs/cdist/cdist/conf/explorer/machine_type',
- 'memory': '/home/sar/vcs/cdist/cdist/conf/explorer/memory',
- 'memory_size': '/home/sar/.cdist/explorer/memory_size',
- 'os': '/home/sar/vcs/cdist/cdist/conf/explorer/os',
- 'os_version': '/home/sar/vcs/cdist/cdist/conf/explorer/os_version',
- 'runlevel': '/home/sar/vcs/cdist/cdist/conf/explorer/runlevel'
-}
-
-
-class TargetContext(dict):
-    def __init__(self, runtime, target, paths):
-        self.runtime = runtime
-        self.target = target
-        self.paths = paths
-
-        ## API
-        # Absolute path to the remote cache directory.
-        self['remote-cache'] = self.runtime['remote-cache-dir']
-        # Absolute path to the remote exec script.
-        self['remote-exec'] = os.path.join(
-            self.paths['target-path'],
-            self.target.identifier,
-            self.target.remote_exec
-        )
-        # Absolute path to the remote copy script.
-        self['remote-copy'] = os.path.join(
-            self.paths['target-path'],
-            self.target.identifier,
-            self.target.remote_copy
-        )
-
-
-class RemoteExecutor(object):
-    def __init__(self, runtime, target):
-        self.runtime = runtime
-        self.target = target
-        remote_exec = target.remote_exec
-        remote_copy = target.remote_copy
-        remote_cache_dir = runtime['remote-cache-dir']
-
+import os
+import asyncio
+import tempfile
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
 from cdist import session
-import os
+from cdist.tasks import GlobalExplorers
+from cdist.execution import TargetContext, RemoteExecutor
+
+
 _session = session.Session()
-_session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
-_session.add_conf_dir(os.path.expanduser('~/.cdist'))
-url = 'ssh+sudo+chroot://root@netboot-dev.ethz.ch/local/nfsroot/preos'
+#_session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
+#_session.add_conf_dir(os.path.expanduser('~/.cdist'))
+_session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
+
+#url = 'ssh+sudo+chroot://root@netboot-dev.ethz.ch/local/nfsroot/preos'
+url = 'ssh://sar@localhost/tmp/foobar'
 _session.add_target(url)
-_target = _session.targets[0]
+# override remote-cache-dir for testing
+_remote_session_dir = tempfile.mkdtemp(prefix='cdist-remote-')
+_session['remote-cache-dir'] = os.path.join(_remote_session_dir, _session['session-id'])
 
 _session_dir = tempfile.mkdtemp(prefix='cdist-session-')
-target_dir = os.path.join(_session_dir, 'targets', target.identifier)
+_session.to_dir(_session_dir)
 
-remote_cache_dir = os.path.join('/var/cache/cdist', _session['session-id'])
-remote_executor = RemoteExecutor(_session.runtime, _target)
+_target = _session.targets[0]
+_paths = {
+    'target-path': os.path.join(_session_dir, 'targets', _target.identifier),
+    'local': {
+        'cache': _session_dir,
+        'global-explorer-path': os.path.join(_session_dir, 'conf', 'explorer'),
+    },
+    'remote': {
+        'global-explorer-path': os.path.join(_session['remote-cache-dir'], 'conf', 'explorer'),
+    },
+}
+_context = TargetContext(_session, _target, _paths)
 
-global_explorers = GlobalExplorers(explorers)
+_remote = RemoteExecutor(_context)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(_remote.exec(['echo', 'hello world']))
+_fd, _name = tempfile.mkstemp(dir=_session_dir)
+with os.fdopen(_fd, 'w') as f:
+    f.write('foobar')
+loop.run_until_complete(_remote.mkdir(_paths['remote']['global-explorer-path']))
+loop.run_until_complete(_remote.copy(_name, os.path.join(_paths['remote']['global-explorer-path'], 'foobar')))
+
+
+@asyncio.coroutine
+def transfer_global_explorers():
+    yield from _remote.mkdir(_paths['remote']['global-explorer-path'])
+    yield from _remote.transfer(
+        _paths['local']['global-explorer-path'],
+        _paths['remote']['global-explorer-path']
+    )
+    yield from _remote.exec(["chmod", "0700", "%s/*" % _paths['remote']['global-explorer-path']])
+
+
+loop.run_until_complete(transfer_global_explorers())
+
+
+loop.close()
+
+
+
+--------------------------------------------------------------------------------
+
+global_explorers = GlobalExplorers(_session['conf']['explorer'])
 
 remote_executor.execute(global_explorers)
 
