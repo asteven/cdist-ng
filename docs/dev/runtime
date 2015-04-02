@@ -1,0 +1,49 @@
+# @see http://en.wikipedia.org/wiki/Runtime_system
+
+import os
+import asyncio
+import tempfile
+import logging
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+
+from cdist import session
+from cdist import runtime
+from cdist.execution import TargetContext
+
+
+_session = session.Session()
+#_session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
+#_session.add_conf_dir(os.path.expanduser('~/.cdist'))
+_session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
+
+#url = 'ssh+sudo+chroot://root@netboot-dev.ethz.ch/local/nfsroot/preos'
+url = 'ssh://sar@localhost/tmp/foobar'
+_session.add_target(url)
+# override remote-cache-dir for testing
+_remote_session_dir = tempfile.mkdtemp(prefix='cdist-remote-')
+_session['remote-cache-dir'] = os.path.join(_remote_session_dir, _session['session-id'])
+
+_session_dir = tempfile.mkdtemp(prefix='cdist-session-')
+_session.to_dir(_session_dir)
+
+_target = _session.targets[0]
+_paths = {
+    'target-path': os.path.join(_session_dir, 'targets', _target.identifier),
+    'local': {
+        'cache': _session_dir,
+        'global-explorer-path': os.path.join(_session_dir, 'conf', 'explorer'),
+    },
+    'remote': {
+        'global-explorer-path': os.path.join(_session['remote-cache-dir'], 'conf', 'explorer'),
+    },
+}
+_context = TargetContext(_session, _target, _paths)
+
+_runtime = runtime.Runtime(_context)
+
+loop = asyncio.get_event_loop()
+
+loop.run_until_complete(_runtime.transfer_global_explorers())
+
+loop.run_until_complete(_runtime.run_global_explorer('disks'))
+loop.run_until_complete(_runtime.run_global_explorer('memory_size'))
