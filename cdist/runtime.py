@@ -2,7 +2,7 @@ import os
 import asyncio
 
 
-from .execution import RemoteExecutor
+from .execution import Remote
 
 
 class Runtime(object):
@@ -12,7 +12,7 @@ class Runtime(object):
 
     def __init__(self, context):
         self.context = context
-        self.remote = RemoteExecutor(context)
+        self.remote = Remote(context)
 
     @asyncio.coroutine
     def transfer_global_explorers(self):

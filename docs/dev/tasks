@@ -6,7 +6,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
 from cdist import session
 from cdist.tasks import GlobalExplorers
-from cdist.execution import TargetContext, RemoteExecutor
+from cdist.execution import TargetContext, Remote
 
 
 _session = session.Session()
@@ -37,7 +37,7 @@ _paths = {
 }
 _context = TargetContext(_session, _target, _paths)
 
-_remote = RemoteExecutor(_context)
+_remote = Remote(_context)
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(_remote.exec(['echo', 'hello world']))
