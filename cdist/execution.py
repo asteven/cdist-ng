@@ -33,7 +33,6 @@ class TargetContext(dict):
         self.paths = paths
 
         ## API
-        # Absolute path to the remote cache directory.
         opj = os.path.join
         self['remote'] = {
             'cache': self.session['remote-cache-dir'],
@@ -53,20 +52,6 @@ class TargetContext(dict):
         for key,value in self.target['target'].items():
             if value:
                 self['environ']['__target_'+ key] = value
-
-
-        self['remote-cache'] = self.session['remote-cache-dir']
-        # Absolute path to the remote exec script.
-        self['remote-exec'] = os.path.join(
-            self.paths['target-path'],
-            self.target.remote_exec
-        )
-        # Absolute path to the remote copy script.
-        self['remote-copy'] = os.path.join(
-            self.paths['target-path'],
-            self.target.remote_copy
-        )
-
 
 
 class Remote(object):
@@ -111,7 +96,7 @@ class Remote(object):
         """
         log.debug('exec: %s', command)
         #yield from asyncio.sleep(1)
-        _command = [self.context['remote-exec']]
+        _command = [self.context['remote']['exec']]
 
         # export target_host for use in remote-{exec,copy} scripts
         os_environ = os.environ.copy()
@@ -141,7 +126,7 @@ class Remote(object):
         os_environ = os.environ.copy()
         os_environ.update(self.context['environ'])
 
-        code = '%s %s %s' % (self.context['remote-copy'], source, destination)
+        code = '%s %s %s' % (self.context['remote']['copy'], source, destination)
         process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
         exit_code = yield from process.wait()
         log.debug('copy exit code: %d', exit_code)

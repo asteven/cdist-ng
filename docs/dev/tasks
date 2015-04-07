@@ -32,6 +32,7 @@ _paths = {
         'global-explorer-path': os.path.join(_session_dir, 'conf', 'explorer'),
     },
     'remote': {
+        'cache': os.path.join('/var/cache/cdist', _session['session-id']),
         'global-explorer-path': os.path.join(_session['remote-cache-dir'], 'conf', 'explorer'),
     },
 }
