@@ -15,5 +15,5 @@ log "@: $@"
 source="$1"
 destination="$2"
 # pipe to parent exec to allow uploading as user
-set -x
+#set -x
 exec cat "$source" | "$parent/exec" "sudo sh -c 'cat > \"$destination\"'"

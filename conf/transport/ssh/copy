@@ -15,6 +15,6 @@ log "__target_host: $__target_host"
 # prefix destination with host
 source="$1"
 destination="${__target_host}:${2}"
-set -x
+#set -x
 exec scp -o User=$__target_user -q "$source" "$destination"
 #cp --dereference "$source" "$destination"

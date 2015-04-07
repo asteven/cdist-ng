@@ -12,6 +12,6 @@ log "@: $@"
 log "__target_user: $__target_user"
 log "__target_host: $__target_host"
 
-set -x
+#set -x
 exec ssh -o User=$__target_user -q "$__target_host" "$@"
 #echo "$@" | /bin/sh

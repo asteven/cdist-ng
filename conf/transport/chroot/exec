@@ -16,5 +16,5 @@ log "__target_path: $__target_path"
 # escape ' with '"'"'
 code="$(echo "$@" | sed -e "s/'/'\"'\"'/g")"
 # pass the execution up the stack
-set -x
+#set -x
 exec "$parent/$mode" "chroot $__target_path sh -c '$code'"

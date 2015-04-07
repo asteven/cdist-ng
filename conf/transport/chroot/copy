@@ -17,5 +17,5 @@ log "__target_path: $__target_path"
 source="$1"
 destination="${__target_path}${2}"
 # pass the execution up the stack
-set -x
+#set -x
 exec "$parent/$mode" "$source" "$destination"
