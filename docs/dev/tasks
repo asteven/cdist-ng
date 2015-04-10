@@ -5,8 +5,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
 from cdist import session
-from cdist.tasks import GlobalExplorers
-from cdist.execution import TargetContext, Remote
+from cdist.execution import TargetContext, Remote, Local
 
 
 _session = session.Session()
@@ -38,6 +37,8 @@ _paths = {
 }
 _context = TargetContext(_session, _target, _paths)
 
+--------------------------------------------------------------------------------
+
 _remote = Remote(_context)
 
 loop = asyncio.get_event_loop()
@@ -61,10 +62,28 @@ def transfer_global_explorers():
 
 loop.run_until_complete(transfer_global_explorers())
 
-
 loop.close()
 
 
+--------------------------------------------------------------------------------
+
+_local = Local(_context)
+
+@asyncio.coroutine
+def run_local():
+    directory = '/tmp/some-junk'
+    print(os.path.isdir(directory))
+    yield from _local.mkdir(directory)
+    print(os.path.isdir(directory))
+    yield from _local.rmdir(directory)
+    print(os.path.isdir(directory))
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(_local.check_call(['echo','foo']))
+loop.run_until_complete(_local.check_output(['echo','foo']))
+
+loop.run_until_complete(run_local())
+loop.close()
 
 --------------------------------------------------------------------------------
 
