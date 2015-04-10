@@ -21,7 +21,9 @@
 
 import os
 import glob
+import shutil
 import asyncio
+import subprocess
 import logging
 log = logging.getLogger(__name__)
 
@@ -54,25 +56,65 @@ class TargetContext(dict):
                 self['environ']['__target_'+ key] = value
 
 
-class Remote(object):
+class Base(object):
+
     def __init__(self, context):
         self.context = context
 
     @asyncio.coroutine
+    def call(self, command, env=None):
+        """asyncio compatible implementation of subprocess.call
+        """
+        process = yield from self.exec(command, env=env)
+        try:
+            returncode = yield from process.wait()
+            return returncode
+        except:
+            process.kill()
+            process.wait()
+            raise
+
+    @asyncio.coroutine
+    def check_call(self, command, env=None):
+        """asyncio compatible implementation of subprocess.check_call
+        """
+        returncode = yield from self.call(command, env=env)
+        if returncode:
+            raise subprocess.CalledProcessError(returncode, command)
+
+    @asyncio.coroutine
+    def check_output(self, command, env=None):
+        """asyncio compatible implementation of subprocess.check_output
+        """
+        process = yield from self.exec(command, env=env)
+        try:
+            out, err = yield from process.communicate()
+        except:
+            process.kill()
+            process.wait()
+            raise
+        if process.returncode:
+            raise subprocess.CalledProcessError(process.returncode, command, output=out)
+        return out
+
+
+class Remote(Base):
+
+    @asyncio.coroutine
     def mkdir(self, path):
-        """Create directory on the remote side."""
+        """Create directory on the target."""
         log.debug("Remote mkdir: %s", path)
-        yield from self.exec(["mkdir", "-p", path])
+        yield from self.check_call(["mkdir", "-p", path])
 
     @asyncio.coroutine
     def rmdir(self, path):
-        """Remove directory on the remote side."""
+        """Remove directory on the target."""
         log.debug("Remote rmdir: %s", path)
-        yield from self.exec(["rm", "-rf",  path])
+        yield from self.check_call(["rm", "-rf",  path])
 
     @asyncio.coroutine
     def transfer(self, source, destination):
-        """Transfer a file or directory to the remote side."""
+        """Transfer a file or directory to the target."""
         log.debug("Remote transfer: %s -> %s", source, destination)
         yield from self.rmdir(destination)
         if os.path.isdir(source):
@@ -111,8 +153,7 @@ class Remote(object):
         _command.extend(command)
         code = ' '.join(_command)
         process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
-        stdout, _ = yield from process.communicate()
-        return stdout
+        return process
 
     @asyncio.coroutine
     def copy(self, source, destination):
@@ -131,17 +172,43 @@ class Remote(object):
         exit_code = yield from process.wait()
         log.debug('copy exit code: %d', exit_code)
 
-    @asyncio.coroutine
-    def check_call(self):
-        pass
 
-    @asyncio.coroutine
-    def check_output(self):
-        pass
-
-
-
-class LocalExecutor(object):
+class Local(Base):
     def __init__(self, context):
         self.context = context
 
+    @asyncio.coroutine
+    def mkdir(self, path):
+        """Create directory on the local host."""
+        log.debug("Local mkdir: %s", path)
+        # Make this a generator for API compability
+        yield
+        os.makedirs(path, exist_ok=True)
+
+    @asyncio.coroutine
+    def rmdir(self, path):
+        """Remove directory on the local host."""
+        log.debug("Local rmdir: %s", path)
+        # Make this a generator for API compability
+        yield
+        shutil.rmtree(path)
+
+    @asyncio.coroutine
+    def exec(self, command, env=None):
+        """Run the given command locally.
+        """
+        log.debug('exec: %s', command)
+        _command = []
+
+        # export target_host for use in remote-{exec,copy} scripts
+        os_environ = os.environ.copy()
+        os_environ.update(self.context['environ'])
+
+        # Add user supplied environment variables if any
+        if env:
+            os_environ.update(env)
+
+        _command.extend(command)
+        code = ' '.join(_command)
+        process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
+        return process
