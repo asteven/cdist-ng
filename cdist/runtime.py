@@ -38,14 +38,20 @@ class Runtime(object):
     def run_global_explorers(self):
         """Run all global explorers and save their output in the session.
         """
-        # copy files in parallel
+        # execute explorers in parallel
         tasks = []
         for name in self.context.session['conf']['explorer']:
             task = asyncio.async(self.run_global_explorer(name))
+            task.name = name
             tasks.append(task)
         if tasks:
             done, pending = yield from asyncio.wait(tasks)
             assert not pending
+
+            for t in done:
+                result = t.result()
+                value = result.decode('ascii').rstrip()
+                self.context.target['explorer'][t.name] = value
 
     @asyncio.coroutine
     def run_type_explorer(self, cdist_object, explorer_name):
