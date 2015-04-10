@@ -18,12 +18,11 @@ class Runtime(object):
     def transfer_global_explorers(self):
         """Transfer the global explorers to the target.
         """
-        yield from self.remote.mkdir(self.context['remote']['explorer'])
         yield from self.remote.transfer(
             self.context['local']['explorer'],
             self.context['remote']['explorer']
         )
-        yield from self.remote.exec(
+        yield from self.remote.check_call(
             ['chmod', '0700', '%s/*' % self.context['remote']['explorer']])
 
 
@@ -32,7 +31,8 @@ class Runtime(object):
         """Run the given global explorer and return it's output.
         """
         explorer = os.path.join(self.context['remote']['explorer'], name)
-        yield from self.remote.exec([explorer])
+        result = yield from self.remote.check_output([explorer])
+        return result
 
     @asyncio.coroutine
     def run_global_explorers(self):
