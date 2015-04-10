@@ -47,3 +47,6 @@ loop.run_until_complete(_runtime.transfer_global_explorers())
 
 loop.run_until_complete(_runtime.run_global_explorer('disks'))
 loop.run_until_complete(_runtime.run_global_explorer('memory_size'))
+
+loop.run_until_complete(_runtime.run_global_explorers())
+_target
