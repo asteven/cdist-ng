@@ -8,7 +8,6 @@ logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
 from cdist import session
 from cdist import runtime
-from cdist.execution import TargetContext
 
 
 _session = session.Session()
@@ -27,19 +26,8 @@ _session_dir = tempfile.mkdtemp(prefix='cdist-session-')
 _session.to_dir(_session_dir)
 
 _target = _session.targets[0]
-_paths = {
-    'target-path': os.path.join(_session_dir, 'targets', _target.identifier),
-    'local': {
-        'cache': _session_dir,
-        'global-explorer-path': os.path.join(_session_dir, 'conf', 'explorer'),
-    },
-    'remote': {
-        'global-explorer-path': os.path.join(_session['remote-cache-dir'], 'conf', 'explorer'),
-    },
-}
-_context = TargetContext(_session, _target, _paths)
 
-_runtime = runtime.Runtime(_context)
+_runtime = runtime.Runtime(_session, _target, _session_dir)
 
 loop = asyncio.get_event_loop()
 
