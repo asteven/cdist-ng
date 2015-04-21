@@ -50,6 +50,7 @@ class TargetContext(dict):
         }
         self['environ'] = {
             '__target_url': self.target['url'],
+            'CDIST_INTERNAL': True,
         }
         for key,value in self.target['target'].items():
             if value:
