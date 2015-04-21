@@ -28,39 +28,10 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class TargetContext(dict):
-    def __init__(self, session, target, paths):
-        self.session = session
-        self.target = target
-        self.paths = paths
-
-        ## API
-        opj = os.path.join
-        self['remote'] = {
-            'cache': self.session['remote-cache-dir'],
-            'copy': opj(self.paths['target-path'], self.target.remote_copy),
-            'exec': opj(self.paths['target-path'], self.target.remote_exec),
-            'explorer': opj(self.session['remote-cache-dir'], 'conf', 'explorer'),
-            'type': opj(self.session['remote-cache-dir'], 'conf', 'type'),
-        }
-        self['local'] = {
-            'cache': self.paths['local']['cache'],
-            'explorer': opj(self.paths['local']['cache'], 'conf', 'explorer'),
-            'type': opj(self.paths['local']['cache'], 'conf', 'type'),
-        }
-        self['environ'] = {
-            '__target_url': self.target['url'],
-            'CDIST_INTERNAL': True,
-        }
-        for key,value in self.target['target'].items():
-            if value:
-                self['environ']['__target_'+ key] = value
-
-
 class Base(object):
 
-    def __init__(self, context):
-        self.context = context
+    def __init__(self, runtime):
+        self.runtime = runtime
 
     @asyncio.coroutine
     def call(self, command, env=None):
@@ -139,11 +110,11 @@ class Remote(Base):
         """
         log.debug('exec: %s', command)
         #yield from asyncio.sleep(1)
-        _command = [self.context['remote']['exec']]
+        _command = [self.runtime.path['remote']['exec']]
 
         # export target_host for use in remote-{exec,copy} scripts
         os_environ = os.environ.copy()
-        os_environ.update(self.context['environ'])
+        os_environ.update(self.runtime.environ)
 
         # can't pass environment to remote side, so prepend command with
         # variable declarations
@@ -166,17 +137,15 @@ class Remote(Base):
 
         # export target_host for use in remote-{exec,copy} scripts
         os_environ = os.environ.copy()
-        os_environ.update(self.context['environ'])
+        os_environ.update(self.runtime.environ)
 
-        code = '%s %s %s' % (self.context['remote']['copy'], source, destination)
+        code = '%s %s %s' % (self.runtime.path['remote']['copy'], source, destination)
         process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
         exit_code = yield from process.wait()
         log.debug('copy exit code: %d', exit_code)
 
 
 class Local(Base):
-    def __init__(self, context):
-        self.context = context
 
     @asyncio.coroutine
     def mkdir(self, path):
@@ -203,7 +172,7 @@ class Local(Base):
 
         # export target_host for use in remote-{exec,copy} scripts
         os_environ = os.environ.copy()
-        os_environ.update(self.context['environ'])
+        os_environ.update(self.runtime.environ)
 
         # Add user supplied environment variables if any
         if env:
