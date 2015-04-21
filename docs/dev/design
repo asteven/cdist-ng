@@ -24,17 +24,8 @@ session: represent a single cdist invocation
 target: the information related to a single target
    - one for each target
 
-context: the target context groups all relevant information to work on a target
-   - the session instance
-   - the target instance
-   - file system paths to:
-      - the target instance
-      - local cache dir
-      - remote cache dir
-
-
-runtime: the cdist runtime implements the core functionality for interacting with the targets
-   - one for each context
+runtime: the cdist runtime implements the core functionality for interacting with a target
+   - one for each target
 
 --------------------------------------------------------------------------------
 
