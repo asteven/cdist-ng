@@ -49,6 +49,7 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
 
     _session = session.Session()
     _session.add_conf_dir(os.path.expanduser('~/.cdist'))
+    _session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
     #url = 'ssh+sudo+chroot://root@netboot-dev.ethz.ch/local/nfsroot/preos'
     for url in target:
         # TODO: test and normalize into valid url that urllib understands
