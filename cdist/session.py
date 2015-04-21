@@ -83,6 +83,8 @@ class MappingOfSymlinkTargets(cconfig.schema.CconfigType):
             os.mkdir(path)
         os.chdir(path)
         for key, link in mapping.items():
+            if os.path.islink(key):
+                os.unlink(key)
             os.symlink(link, key)
         os.chdir(cwd)
 
@@ -128,7 +130,8 @@ class Session(dict):
         cconfig.to_dir(path, self, schema=self.schema)
 
         targets_base_path = os.path.join(path, 'targets')
-        os.mkdir(targets_base_path)
+        if not os.path.isdir(targets_base_path):
+            os.mkdir(targets_base_path)
         for target in self.targets:
             target_path = os.path.join(targets_base_path, target.identifier)
             target.to_dir(target_path)

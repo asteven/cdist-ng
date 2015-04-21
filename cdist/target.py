@@ -60,6 +60,8 @@ class TransportStackType(cconfig.schema.CconfigType):
             for child in os.listdir(target):
                 source = os.path.join(target, child)
                 destination = os.path.basename(source)
+                if os.path.islink(destination):
+                    os.unlink(destination)
                 os.symlink(source, destination)
         os.chdir(cwd)
 
