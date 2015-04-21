@@ -87,7 +87,6 @@ class MappingOfSymlinkTargets(cconfig.schema.CconfigType):
         os.chdir(cwd)
 
 
-
 class Session(dict):
     schema_decl = (
         # path, type, subschema
