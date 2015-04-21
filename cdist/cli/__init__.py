@@ -27,7 +27,6 @@ class SubfolderMultiCommand(click.MultiCommand):
                     cmd_name = filename[:-3].replace('_', '-')
                     rv.append(cmd_name)
         rv.sort()
-        print('rv: {0}'.format(rv))
         return rv
 
     def get_command(self, ctx, cmd_name):
