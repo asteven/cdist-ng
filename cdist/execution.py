@@ -49,7 +49,7 @@ class TargetContext(dict):
             'type': opj(self.paths['local']['cache'], 'conf', 'type'),
         }
         self['environ'] = {
-            '__target_url': self.target['url']
+            '__target_url': self.target['url'],
         }
         for key,value in self.target['target'].items():
             if value:
@@ -71,7 +71,7 @@ class Base(object):
             return returncode
         except:
             process.kill()
-            process.wait()
+            yield from process.wait()
             raise
 
     @asyncio.coroutine
@@ -89,13 +89,13 @@ class Base(object):
         process = yield from self.exec(command, env=env)
         try:
             out, err = yield from process.communicate()
+            if process.returncode:
+                raise subprocess.CalledProcessError(process.returncode, command, output=out)
+            return out
         except:
             process.kill()
-            process.wait()
+            yield from process.wait()
             raise
-        if process.returncode:
-            raise subprocess.CalledProcessError(process.returncode, command, output=out)
-        return out
 
 
 class Remote(Base):
