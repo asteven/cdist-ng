@@ -7,12 +7,12 @@ cache in ~/.cache/cdist/
 : ${XDG_CONFIG_HOME:=$HOME/.config}
 : ${XDG_CACHE_HOME:=$HOME/.cache}
 
-### remote file locations for config ###
+### remote file locations for `cdist config` ###
 /etc/cdist
 /var/cache/cdist
 /var/lib/cdist
 
-### remote file locations for deploy ###
+### remote file locations for `cdist deploy` ###
 Same as local file locations but on the target host
 
 
@@ -38,6 +38,8 @@ runtime: the cdist runtime implements the core functionality for interacting wit
 
 --------------------------------------------------------------------------------
 
+
+== old notes ==
 - master process creates a session
 - then forks a worker for each target
 - each worker uses multiple asyncio coroutines to get the job done
