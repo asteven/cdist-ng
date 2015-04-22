@@ -121,8 +121,13 @@ class Runtime(object):
     def run_global_explorer(self, name):
         """Run the given global explorer and return it's output.
         """
+        env = self.environ.copy()
+        env.update({
+            '__explorer': self.path['remote']['explorer'],
+
+        })
         explorer = os.path.join(self.path['remote']['explorer'], name)
-        result = yield from self.remote.check_output([explorer])
+        result = yield from self.remote.check_output([explorer], env=env)
         return result
 
     @asyncio.coroutine
@@ -164,7 +169,7 @@ class Runtime(object):
             '__object_id': cdist_object['object-id'],
             '__object_name': cdist_object.name,
             '__type_explorer': remote_explorer_path,
-
+            '__explorer': self.path['remote']['explorer'],
         })
 
         logging.debug("Running type explorer '%s' for object %s", explorer_name, cdist_object)
