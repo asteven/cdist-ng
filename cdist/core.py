@@ -1,0 +1,176 @@
+# -*- coding: utf-8 -*-
+#
+# 2015 Steven Armstrong (steven-cdist at armstrong.cc)
+#
+# This file is part of cdist.
+#
+# cdist is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# cdist is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with cdist. If not, see <http://www.gnu.org/licenses/>.
+#
+#
+
+import os
+
+import cconfig
+
+
+class CdistType(dict):
+    """Represents a cdist type.
+    """
+
+    @classmethod
+    def from_dir(cls, path, name=None):
+        """Load a cdist type from the given directory.
+
+        If no explicit name is given assume the last segment of the given path
+        to be the name of the type.
+        """
+        type_name = name or os.path.split(path)[1]
+        obj = cls(type_name)
+        return cconfig.from_dir(path, obj=obj, schema=obj.schema)
+
+    schema_decl = (
+        # path, type, subschema
+        ('explorer', 'listdir'),
+        ('install', bool),
+        ('parameter', dict, (
+            ('required', list),
+            ('required_multiple', list),
+            ('optional', list),
+            ('optional_multiple', list),
+            ('boolean', list),
+            ('default', dict),
+        )),
+        ('singleton', bool),
+    )
+
+    schema = cconfig.Schema(schema_decl)
+    files = 'manifest explorer gencode-local gencode-remote'.split(' ')
+
+    def __init__(self, name):
+        super().__init__(cconfig.from_schema(self.schema))
+        self.name = name
+        self.__object_schema = None
+
+        # easy access to relative paths
+        self.path = { key: os.path.join(self.name, key) for key in self.files }
+
+    @property
+    def object_schema(self):
+        if self.__object_schema is None:
+            parameters = []
+            # use proper cconfig type for each parameter
+            for parameter_type, values in self['parameter'].items():
+                if parameter_type == 'default':
+                    continue
+                if parameter_type == 'boolean':
+                    _type = bool
+                else:
+                    _type = str
+                for name in values:
+                    parameters.append((name, _type))
+            schema_decl = (
+                # path, type, subschema
+                ('autorequire', list),
+                ('changed', bool),
+                ('code-local', str),
+                ('code-remote', str),
+                ('explorer', dict, ((name, str) for name in self['explorer'])),
+                ('object-id', str),
+                ('parameter', dict, tuple(parameters)),
+                ('require', list),
+                ('source', list),
+                ('state', str),
+                ('type', str),
+            )
+            self.__object_schema = cconfig.Schema(schema_decl)
+        return self.__object_schema
+
+    def __call__(self, object_id=None, parameters=None):
+        """Create and return a new cdist object. This can be thought of as
+        being an instance of this cdist type.
+        """
+        _object = CdistObject(self.object_schema, type_name=self.name, object_id=object_id)
+        if parameters:
+            _object['parameter'].update(parameters)
+        return _object
+
+    def object_from_dir(self, path):
+        """Load a cdist object instance from an existing directory.
+        """
+        _object = CdistObject.from_dir(self.object_schema, path)
+        return _object
+
+    def __repr__(self):
+        return '<CdistType %s>' % self.name
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.name == other.name
+
+    def __lt__(self, other):
+        return isinstance(other, self.__class__) and self.name < other.name
+
+
+class CdistObject(dict):
+    """Represents a cdist object.
+    """
+
+    @classmethod
+    def from_dir(cls, schema, path):
+        """Load a cdist object instance from the given directory.
+        """
+        obj = cls(schema)
+        return cconfig.from_dir(path, obj=obj, schema=obj.schema)
+
+    def to_dir(self, path):
+        """Store this cdist object instance in the given directory.
+        """
+        cconfig.to_dir(path, self, schema=self.schema)
+
+    def __init__(self, schema, type_name=None, object_id=None):
+        self.schema = schema
+        super().__init__(cconfig.from_schema(self.schema))
+        self['type'] = type_name
+        self['object-id'] = object_id
+
+    @property
+    def name(self):
+        if self['object-id']:
+            return os.path.join(self['type'], self['object-id'])
+        else:
+            return self['type']
+
+    def __repr__(self):
+        return '<CdistObject %s>' % self.name
+
+#    def __eq__(self, other):
+#        """define equality as 'name is the same'"""
+#        return self.name == other.name
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __lt__(self, other):
+        return isinstance(other, self.__class__) and self.name < other.name
+
+    @staticmethod
+    def split_name(object_name):
+        """split_name('__type_name/the/object_id') -> ('__type_name', 'the/object_id')
+
+        Split the given object name into it's type and object_id parts.
+
+        """
+        type_name = object_name.split(os.sep)[0]
+        object_id = os.sep.join(object_name.split(os.sep)[1:])
+        return type_name, object_id
+
