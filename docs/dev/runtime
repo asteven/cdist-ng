@@ -12,7 +12,7 @@ from cdist import runtime
 
 _session = session.Session()
 #_session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
-#_session.add_conf_dir(os.path.expanduser('~/.cdist'))
+_session.add_conf_dir(os.path.expanduser('~/.cdist'))
 _session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
 
 #url = 'ssh+sudo+chroot://root@netboot-dev.ethz.ch/local/nfsroot/preos'
@@ -31,10 +31,25 @@ _runtime = runtime.Runtime(_session, _target, _session_dir)
 
 loop = asyncio.get_event_loop()
 
-loop.run_until_complete(_runtime.transfer_global_explorers())
-
-loop.run_until_complete(_runtime.run_global_explorer('disks'))
-loop.run_until_complete(_runtime.run_global_explorer('memory_size'))
+#loop.run_until_complete(_runtime.transfer_global_explorers())
+#loop.run_until_complete(_runtime.run_global_explorer('disks'))
+#loop.run_until_complete(_runtime.run_global_explorer('memory_size'))
 
 loop.run_until_complete(_runtime.run_global_explorers())
+
 _target
+
+
+from cdist.core import CdistType
+
+_type = CdistType.from_dir(_session['conf']['type']['__service'])
+
+_object = _type('foobard', parameters={'enabled': True, 'running': True})
+_object_dir = os.path.join(_runtime.path['local']['object'], _object.name, '.cdist')
+os.makedirs(_object_dir)
+_object.to_dir(_object_dir)
+
+#loop.run_until_complete(_runtime.transfer_type_explorers(_type))
+#loop.run_until_complete(_runtime.transfer_object_parameters(_object))
+
+loop.run_until_complete(_runtime.run_type_explorers(_object))
