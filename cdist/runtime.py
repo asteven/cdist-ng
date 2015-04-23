@@ -32,9 +32,15 @@ class Runtime(object):
             target_path = opj(self.local_session_dir, 'targets', self.target.identifier)
 
             path = {
+                'target': {
+                    'explorer': opj(target_path, 'explorer'),
+                    'object': opj(target_path, 'object'),
+                },
                 'local': {
+                    'bin': opj(self.local_session_dir, 'bin'),
                     'cache': self.local_session_dir,
                     'explorer': opj(self.local_session_dir, 'conf', 'explorer'),
+                    'manifest': opj(self.local_session_dir, 'conf', 'manifest'),
                     'object': opj(target_path, 'object'),
                     'type': opj(self.local_session_dir, 'conf', 'type'),
                 },
@@ -75,7 +81,7 @@ class Runtime(object):
     def sync_object(self, cdist_object):
         """Sync changes to the cdist object to disk.
         """
-        object_path = self.get_object_path(cdist_object.name)
+        object_path = self.get_object_path(cdist_object)
         cdist_object.to_dir(object_path)
 
     def get_type(self, type_name):
@@ -85,9 +91,13 @@ class Runtime(object):
         _type = CdistType.from_dir(type_path)
         return _type
 
-    def get_object_path(self, object_name, context='local'):
-        """Get the absolute path to an object.
+    def get_object_path(self, object_or_name, context='local'):
+        """Get the absolute path to an object by name or object instance.
         """
+        if isinstance(object_or_name, CdistObject):
+            object_name = object_or_name.name
+        else:
+            object_name = object_or_name
         return os.path.join(
             self.path[context]['object'],
             object_name,
@@ -118,11 +128,10 @@ class Runtime(object):
     def run_global_explorer(self, name):
         """Run the given global explorer and return it's output.
         """
-        env = self.environ.copy()
-        env.update({
+        env = {
             '__explorer': self.path['remote']['explorer'],
 
-        })
+        }
         explorer = os.path.join(self.path['remote']['explorer'], name)
         result = yield from self.remote.check_output([explorer], env=env)
         return result
@@ -156,14 +165,13 @@ class Runtime(object):
         cdist_type = self.get_type(cdist_object['type'])
         remote_explorer_path = os.path.join(self.path['remote']['type'], cdist_type.path['explorer'])
 
-        env = self.environ.copy()
-        env.update({
+        env = {
             '__object': self.get_object_path(cdist_object, 'remote'),
             '__object_id': cdist_object['object-id'],
             '__object_name': cdist_object.name,
             '__type_explorer': remote_explorer_path,
             '__explorer': self.path['remote']['explorer'],
-        })
+        }
 
         logging.debug("Running type explorer '%s' for object %s", explorer_name, cdist_object)
         explorer = os.path.join(remote_explorer_path, explorer_name)
@@ -226,6 +234,21 @@ class Runtime(object):
                 'parameter'
             )
             yield from self.remote.transfer(source, destination)
+
+    @asyncio.coroutine
+    def run_initial_manifest(self, initial_manifest=None):
+        manifest = os.path.join(self.path['local']['manifest'], 'init')
+
+        env = {
+            'PATH': "%s:%s" % (self.path['local']['bin'], os.environ['PATH']),
+            '__global': self.local_session_dir,
+            '__cdist_manifest': manifest,
+            '__manifest': self.path['local']['manifest'],
+            '__explorer': self.path['target']['explorer'],
+        }
+
+        logging.debug('Running initial manifest: %s', manifest)
+        yield from self.local.check_call([manifest], env=env)
 
     def list_object_names(self):
         """Return a list of object names"""
