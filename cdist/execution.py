@@ -65,8 +65,11 @@ class Base(object):
                 raise subprocess.CalledProcessError(process.returncode, command, output=out)
             return out
         except:
-            process.kill()
-            yield from process.wait()
+            try:
+                process.kill()
+                yield from process.wait()
+            except ProcessLookupError:
+                pass
             raise
 
 
