@@ -20,6 +20,7 @@
 #
 
 import os
+import tempfile
 import urllib
 import time
 import base64
@@ -71,6 +72,7 @@ class Target(dict):
         # path, type, subschema
         ('explorer', dict),
         ('messages', list),
+        ('object-marker', str),
         ('remote-state-dir', str),
         ('target', dict, (
             ('scheme', str),
@@ -101,6 +103,7 @@ class Target(dict):
     def __init__(self, transports=None, target=None):
         super().__init__(cconfig.from_schema(self.schema))
         self.available_transports = transports
+        self['object-marker'] = tempfile.mktemp(prefix='.cdist-', dir='')
         if target:
             self.set_target(target)
 

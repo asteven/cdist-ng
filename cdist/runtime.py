@@ -7,10 +7,6 @@ from .execution import Local, Remote
 from .core import CdistType, CdistObject
 
 
-# FIXME: replace with dynamic marker inside the runtime
-OBJECT_MARKER = '.cdist'
-
-
 class Runtime(object):
     """The cdist runtime implements the core low level primitives for
     interacting with a target.
@@ -61,6 +57,7 @@ class Runtime(object):
         if self.__environ is None:
             environ = {
                 '__target_url': self.target['url'],
+                '__cdist_object_marker': self.target['object-marker'],
                 'CDIST_INTERNAL': 'yes',
             }
             for key,value in self.target['target'].items():
@@ -88,13 +85,13 @@ class Runtime(object):
         _type = CdistType.from_dir(type_path)
         return _type
 
-    def get_object_path(self, object_name):
+    def get_object_path(self, object_name, context='local'):
         """Get the absolute path to an object.
         """
         return os.path.join(
-            self.path['local']['object'],
+            self.path[context]['object'],
             object_name,
-            OBJECT_MARKER
+            self.target['object-marker']
         )
 
     def get_object(self, object_name):
@@ -161,11 +158,7 @@ class Runtime(object):
 
         env = self.environ.copy()
         env.update({
-            '__object': os.path.join(
-                self.path['remote']['object'],
-                cdist_object.name,
-                OBJECT_MARKER
-            ),
+            '__object': self.get_object_path(cdist_object, 'remote'),
             '__object_id': cdist_object['object-id'],
             '__object_name': cdist_object.name,
             '__type_explorer': remote_explorer_path,
@@ -225,15 +218,11 @@ class Runtime(object):
         if cdist_object['parameter']:
             logging.debug("Transfering object parameters for object: %s", cdist_object)
             source = os.path.join(
-                self.path['local']['object'],
-                cdist_object.name,
-                OBJECT_MARKER,
+                self.get_object_path(cdist_object, 'local'),
                 'parameter'
             )
             destination = os.path.join(
-                self.path['remote']['object'],
-                cdist_object.name,
-                OBJECT_MARKER,
+                self.get_object_path(cdist_object, 'remote'),
                 'parameter'
             )
             yield from self.remote.transfer(source, destination)
@@ -242,7 +231,7 @@ class Runtime(object):
         """Return a list of object names"""
         object_base_path = self.path['local']['object']
         for path, dirs, files in os.walk(object_base_path):
-            if OBJECT_MARKER in dirs:
+            if self.target['object-marker'] in dirs:
                 yield os.path.relpath(path, object_base_path)
 
     def list_objects(self):
@@ -250,8 +239,5 @@ class Runtime(object):
         object_base_path = self.path['local']['object']
         type_base_path = self.path['local']['type']
         for object_name in self.list_object_names():
-            type_name, object_id = CdistObject.split_name(object_name)
-            type_path = os.path.join(type_base_path, type_name)
-            _type = CdistType.from_dir(type_path)
-            object_path = os.path.join(object_base_path, object_name, OBJECT_MARKER)
-            yield _type.object_from_dir(object_path)
+            _object = self.get_object(object_name)
+            yield _object
