@@ -4,14 +4,17 @@ import os
 import asyncio
 import tempfile
 import logging
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.ERROR, format='%(levelname)s: %(message)s')
+
+log = logging.getLogger('cdist')
+log.setLevel(logging.DEBUG)
 
 from cdist import session
 from cdist import runtime
 
 
 _session = session.Session()
-#_session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
+_session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
 _session.add_conf_dir(os.path.expanduser('~/.cdist'))
 _session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
 
@@ -40,12 +43,10 @@ loop.run_until_complete(_runtime.run_global_explorers())
 _target
 
 
-from cdist.core import CdistType
-
-_type = CdistType.from_dir(_session['conf']['type']['__service'])
-
+# manually create a object to have something to work with
+_type = _runtime.get_type('__service')
 _object = _type('foobard', parameters={'enabled': True, 'running': True})
-_object_dir = os.path.join(_runtime.path['local']['object'], _object.name, '.cdist')
+_object_dir = _runtime.get_object_path(_object, 'local')
 os.makedirs(_object_dir)
 _object.to_dir(_object_dir)
 
@@ -53,3 +54,6 @@ _object.to_dir(_object_dir)
 #loop.run_until_complete(_runtime.transfer_object_parameters(_object))
 
 loop.run_until_complete(_runtime.run_type_explorers(_object))
+
+loop.run_until_complete(_runtime.run_initial_manifest())
+
