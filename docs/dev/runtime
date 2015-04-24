@@ -57,3 +57,14 @@ loop.run_until_complete(_runtime.run_type_explorers(_object))
 
 loop.run_until_complete(_runtime.run_initial_manifest())
 
+--------------------------------------------------------------------------------
+
+# test timeouts
+loop.run_until_complete(_runtime.local.call(['sleep 3;', 'echo bla']))
+loop.run_until_complete(_runtime.local.call(['sleep 3;', 'echo bla'], timeout=2))
+
+loop.run_until_complete(_runtime.local.check_call(['sleep 3;', 'echo bla']))
+loop.run_until_complete(_runtime.local.check_call(['sleep 3;', 'echo bla'], timeout=2))
+
+loop.run_until_complete(_runtime.local.check_output(['sleep 3;', 'echo bla']))
+loop.run_until_complete(_runtime.local.check_output(['sleep 3;', 'echo bla'], timeout=2))
