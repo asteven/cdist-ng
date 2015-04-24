@@ -55,15 +55,11 @@ class CdistType(dict):
     )
 
     schema = cconfig.Schema(schema_decl)
-    files = 'manifest explorer gencode-local gencode-remote'.split(' ')
 
     def __init__(self, name):
         super().__init__(cconfig.from_schema(self.schema))
         self.name = name
         self.__object_schema = None
-
-        # easy access to relative paths
-        self.path = { key: os.path.join(self.name, key) for key in self.files }
 
     @property
     def object_schema(self):
