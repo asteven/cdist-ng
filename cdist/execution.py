@@ -135,7 +135,7 @@ class Remote(Base):
         """Run the given command with the configured remote-exec script.
         """
         with (yield from self.runtime.exec_semaphore):
-            log.debug('exec: command=%s, kwargs=%s', command, kwargs)
+            log.debug('remote exec: command=%s, kwargs=%s', command, kwargs)
             _command = [self.runtime.path['remote']['exec']]
 
             # export target_host for use in remote-{exec,copy} scripts
@@ -149,8 +149,14 @@ class Remote(Base):
                 remote_env = ["%s=%s" % item for item in env.items()]
                 _command.extend(remote_env)
 
+            if 'shell' in kwargs:
+                shell = kwargs.pop('shell')
+                if shell:
+                    _command.extend([os.environ.get('CDIST_REMOTE_SHELL', '/bin/sh') , '-e'])
+
             _command.extend(command)
             code = ' '.join(_command)
+            log.debug('remote exec: code=%s', code)
             process = yield from asyncio.create_subprocess_shell(code, env=os_environ, **kwargs)
             return process
 
@@ -194,7 +200,7 @@ class Local(Base):
     def exec(self, command, **kwargs):
         """Run the given command locally.
         """
-        log.debug('exec: command=%s, kwargs=%s', command, kwargs)
+        log.debug('local exec: command=%s, kwargs=%s', command, kwargs)
 
         # export target_host for use in remote-{exec,copy} scripts
         os_environ = os.environ.copy()
@@ -205,6 +211,14 @@ class Local(Base):
             env = kwargs.pop('env')
             os_environ.update(env)
 
-        code = ' '.join(command)
+        _command = []
+
+        if 'shell' in kwargs:
+            shell = kwargs.pop('shell')
+            if shell:
+                _command.extend([os.environ.get('CDIST_LOCAL_SHELL', '/bin/sh') , '-e'])
+
+        _command.extend(command)
+        code = ' '.join(_command)
         process = yield from asyncio.create_subprocess_shell(code, env=os_environ, **kwargs)
         return process
