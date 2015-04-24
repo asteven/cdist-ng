@@ -43,6 +43,7 @@ class Runtime(object):
                     'bin': opj(self.local_session_dir, 'bin'),
                     'cache': self.local_session_dir,
                     'explorer': opj(self.local_session_dir, 'conf', 'explorer'),
+                    'global': target_path,
                     'manifest': opj(self.local_session_dir, 'conf', 'manifest'),
                     'object': opj(target_path, 'object'),
                     'type': opj(self.local_session_dir, 'conf', 'type'),
@@ -246,6 +247,33 @@ class Runtime(object):
 
         self.log.debug('Running initial manifest: %s', manifest)
         yield from self.local.check_call([manifest], env=env)
+
+    @asyncio.coroutine
+    def run_type_manifest(self, cdist_object):
+        """Run the type manifest for the given object.
+        """
+        cdist_type = self.get_type(cdist_object['type'])
+        manifest = os.path.join(self.path['local']['type'], cdist_type.path['manifest'])
+
+        if not os.path.isfile(manifest):
+            return
+
+        env = {
+            'PATH': "%s:%s" % (self.path['local']['bin'], os.environ['PATH']),
+            '__global': self.path['local']['global'],
+            '__cdist_manifest': manifest,
+            '__manifest': self.path['local']['manifest'],
+            '__explorer': self.path['target']['explorer'],
+            '__object': self.get_object_path(cdist_object, 'local'),
+            '__object_id': cdist_object['object-id'],
+            '__object_name': cdist_object.name,
+            '__type': os.path.join(self.path['local']['type'], cdist_type.name),
+        }
+
+        self.log.debug("Running type manifest for object %s", cdist_object)
+        # FIXME: add messaging support
+        yield from self.local.check_call([manifest], env=env)
+
 
     def list_object_names(self):
         """Return a list of object names"""
