@@ -111,41 +111,41 @@ class Remote(Base):
     def exec(self, command, env=None):
         """Run the given command with the configured remote-exec script.
         """
-        log.debug('exec: %s', command)
-        #yield from asyncio.sleep(1)
-        _command = [self.runtime.path['remote']['exec']]
+        with (yield from self.runtime.exec_semaphore):
+            log.debug('exec: %s', command)
+            _command = [self.runtime.path['remote']['exec']]
 
-        # export target_host for use in remote-{exec,copy} scripts
-        os_environ = os.environ.copy()
-        os_environ.update(self.runtime.environ)
+            # export target_host for use in remote-{exec,copy} scripts
+            os_environ = os.environ.copy()
+            os_environ.update(self.runtime.environ)
 
-        # can't pass environment to remote side, so prepend command with
-        # variable declarations
-        if env:
-            remote_env = ["%s=%s" % item for item in env.items()]
-            _command.extend(remote_env)
+            # can't pass environment to remote side, so prepend command with
+            # variable declarations
+            if env:
+                remote_env = ["%s=%s" % item for item in env.items()]
+                _command.extend(remote_env)
 
-        _command.extend(command)
-        code = ' '.join(_command)
-        process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
-        return process
+            _command.extend(command)
+            code = ' '.join(_command)
+            process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
+            return process
 
     @asyncio.coroutine
     def copy(self, source, destination):
         """Copy the given source to destination using the configured
         remote-copy script.
         """
-        log.debug('copy: %s -> %s', source, destination)
-        #yield from asyncio.sleep(1)
+        with (yield from self.runtime.copy_semaphore):
+            log.debug('copy: %s -> %s', source, destination)
 
-        # export target_host for use in remote-{exec,copy} scripts
-        os_environ = os.environ.copy()
-        os_environ.update(self.runtime.environ)
+            # export target_host for use in remote-{exec,copy} scripts
+            os_environ = os.environ.copy()
+            os_environ.update(self.runtime.environ)
 
-        code = '%s %s %s' % (self.runtime.path['remote']['copy'], source, destination)
-        process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
-        exit_code = yield from process.wait()
-        log.debug('copy exit code: %d', exit_code)
+            code = '%s %s %s' % (self.runtime.path['remote']['copy'], source, destination)
+            process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
+            exit_code = yield from process.wait()
+            log.debug('copy exit code: %d', exit_code)
 
 
 class Local(Base):
