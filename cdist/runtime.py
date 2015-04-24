@@ -20,6 +20,8 @@ class Runtime(object):
         self.__path = None
         self.__environ = None
         self._type_explorers_transferred = []
+        self.copy_semaphore = asyncio.Semaphore(20)
+        self.exec_semaphore = asyncio.Semaphore(50)
         self.local = Local(self)
         self.remote = Remote(self)
 
@@ -149,13 +151,10 @@ class Runtime(object):
             task.name = name
             tasks.append(task)
         if tasks:
-            done, pending = yield from asyncio.wait(tasks)
-            assert not pending
-
-            for t in done:
-                result = t.result()
-                value = result.decode('ascii').rstrip()
-                self.target['explorer'][t.name] = value
+            results = yield from asyncio.gather(*tasks)
+            for index,name in enumerate(self.session['conf']['explorer']):
+                value = results[index].decode('ascii').rstrip()
+                self.target['explorer'][name] = value
             self.sync_target()
 
     @asyncio.coroutine
@@ -194,13 +193,10 @@ class Runtime(object):
             task.name = name
             tasks.append(task)
         if tasks:
-            done, pending = yield from asyncio.wait(tasks)
-            assert not pending
-
-            for t in done:
-                result = t.result()
-                value = result.decode('ascii').rstrip()
-                cdist_object['explorer'][t.name] = value
+            results = yield from asyncio.gather(*tasks)
+            for index,name in enumerate(cdist_object['explorer']):
+                value = results[index].decode('ascii').rstrip()
+                cdist_object['explorer'][name] = value
             self.sync_object(cdist_object)
 
     @asyncio.coroutine
