@@ -3,7 +3,8 @@
 context=$(cd "${0%/*}"; pwd -P)
 
 log() {
-   echo "$@" >&2
+   :
+   #echo "$@" >&2
 }
 
 log "-----"
@@ -12,6 +13,29 @@ log "@: $@"
 log "__target_user: $__target_user"
 log "__target_host: $__target_host"
 
+
 #set -x
-exec ssh -o User=$__target_user -q "$__target_host" "$@"
+#exec ssh -o User=$__target_user -q "$__target_host" "$@"
+#exit 0
+
+control_path_base_dir="$XDG_RUNTIME_DIR/cdist-ssh"
+[ -d "$control_path_base_dir" ] || {
+   echo "control_path_base_dir: $control_path_base_dir" | logger
+   mkdir "$control_path_base_dir"
+   chmod 700 "$control_path_base_dir"
+}
+control_path_dir="$control_path_base_dir/${__target_host##*+}"
+[ -d "$control_path_dir" ] || {
+   echo "control_path_dir: $control_path_dir" | logger
+   mkdir "$control_path_dir"
+}
+
+exec ssh \
+   -o User=$__target_user \
+   -o ForwardX11=no \
+   -o ControlMaster=auto \
+   -o ControlPath="$control_path_dir/%r@%h:%p" \
+   -o ControlPersist=10 \
+   "$__target_host" "$@"
+
 #echo "$@" | /bin/sh
