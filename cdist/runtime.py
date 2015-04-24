@@ -1,5 +1,8 @@
 import os
 import asyncio
+import contextlib
+import tempfile
+import shutil
 import logging
 
 
@@ -38,6 +41,7 @@ class Runtime(object):
                 'target': {
                     'explorer': opj(target_path, 'explorer'),
                     'object': opj(target_path, 'object'),
+                    'messages': opj(target_path, 'messages'),
                 },
                 'local': {
                     'bin': opj(self.local_session_dir, 'bin'),
@@ -66,8 +70,10 @@ class Runtime(object):
         """
         if self.__environ is None:
             environ = {
-                '__target_url': self.target['url'],
                 '__cdist_object_marker': self.target['object-marker'],
+                '__remote_copy': self.path['remote']['copy'],
+                '__remote_exec': self.path['remote']['exec'],
+                '__target_url': self.target['url'],
                 'CDIST_INTERNAL': 'yes',
             }
             for key,value in self.target['target'].items():
@@ -116,6 +122,21 @@ class Runtime(object):
         object_path = self.get_object_path(object_name)
         _object = _type.object_from_dir(object_path)
         return _object
+
+    def list_object_names(self):
+        """Return a list of object names"""
+        object_base_path = self.path['local']['object']
+        for path, dirs, files in os.walk(object_base_path):
+            if self.target['object-marker'] in dirs:
+                yield os.path.relpath(path, object_base_path)
+
+    def list_objects(self):
+        """Return a list of object instances"""
+        object_base_path = self.path['local']['object']
+        type_base_path = self.path['local']['type']
+        for object_name in self.list_object_names():
+            _object = self.get_object(object_name)
+            yield _object
 
     @asyncio.coroutine
     def transfer_global_explorers(self):
@@ -233,6 +254,44 @@ class Runtime(object):
             )
             yield from self.remote.transfer(source, destination)
 
+    @contextlib.contextmanager
+    def messages(self, prefix, env):
+        """Support messaging between types.
+        """
+        # create temporary files for new messages
+        in_fd, messages_in = tempfile.mkstemp(prefix='cdist-message-in-')
+        out_fd, messages_out = tempfile.mkstemp(prefix='cdist-message-out-')
+        os.close(in_fd)
+        os.close(out_fd)
+
+        # give the client a copy of the global messages file to work with
+        shutil.copyfile(self.path['target']['messages'], messages_in)
+
+        # set environment variables for clients to use
+        env['__messages_in'] = messages_in
+        env['__messages_out'] = messages_out
+
+        try:
+            # give control back to our caller
+            yield
+        finally:
+            # merge new messages back into our global list if any
+            with open(messages_out, 'r') as fd:
+                new_messages = False
+                for line in fd:
+                    message = line.strip('\n')
+                    if message:
+                        new_messages = True
+                        self.target['messages'].append('%s:%s' % (prefix, message))
+                if new_messages:
+                    # FIXME: does this belong here? or better in the caller? elsewhere?
+                    self.sync_target()
+            # remove temporary files
+            if os.path.exists(messages_in):
+                os.remove(messages_in)
+            if os.path.exists(messages_out):
+                os.remove(messages_out)
+
     @asyncio.coroutine
     def run_initial_manifest(self, initial_manifest=None):
         manifest = os.path.join(self.path['local']['manifest'], 'init')
@@ -271,21 +330,80 @@ class Runtime(object):
         }
 
         self.log.debug("Running type manifest for object %s", cdist_object)
-        # FIXME: add messaging support
-        yield from self.local.check_call([manifest], env=env)
+        message_prefix = cdist_object.name
+        with self.messages(message_prefix, env):
+            yield from self.local.check_call([manifest], env=env)
 
+    @asyncio.coroutine
+    def _run_gencode(self, cdist_object, context):
+        """Run the gencode-* script for the given object.
+        """
+        cdist_type = self.get_type(cdist_object['type'])
+        script = os.path.join(self.path['local']['type'], cdist_type.path['gencode-%s' % context])
 
-    def list_object_names(self):
-        """Return a list of object names"""
-        object_base_path = self.path['local']['object']
-        for path, dirs, files in os.walk(object_base_path):
-            if self.target['object-marker'] in dirs:
-                yield os.path.relpath(path, object_base_path)
+        if not os.path.isfile(script):
+            return
 
-    def list_objects(self):
-        """Return a list of object instances"""
-        object_base_path = self.path['local']['object']
-        type_base_path = self.path['local']['type']
-        for object_name in self.list_object_names():
-            _object = self.get_object(object_name)
-            yield _object
+        env = {
+            '__global': self.path['local']['global'],
+            '__type': os.path.join(self.path['local']['type'], cdist_type.name),
+            '__object': self.get_object_path(cdist_object, 'local'),
+            '__object_id': cdist_object['object-id'],
+            '__object_name': cdist_object.name,
+        }
+
+        self.log.debug("Running gencode-%s for object %s", context, cdist_object)
+        message_prefix = cdist_object.name
+        with self.messages(message_prefix, env):
+            result = yield from self.local.check_output([script], env=env)
+            return result.decode('ascii').rstrip()
+
+    @asyncio.coroutine
+    def run_gencode_local(self, cdist_object):
+        """Run the gencode-local script for the given object.
+        """
+        return self._run_gencode(cdist_object, 'local')
+
+    @asyncio.coroutine
+    def run_gencode_remote(self, cdist_object):
+        """Run the gencode-remote script for the given object.
+        """
+        return self._run_gencode(cdist_object, 'remote')
+
+    @asyncio.coroutine
+    def transfer_code_remote(self, cdist_object):
+        """Transfer the code_remote script for the given object to the target.
+        """
+        source = os.path.join(self.get_object_path(cdist_object, 'local'), 'code-remote')
+        destination = os.path.join(self.get_object_path(cdist_object, 'remote'), 'code-remote')
+        yield from self.remote.transfer(source, destination)
+        yield from self.remote.check_call(['chmod', '0700', destination])
+
+    def _run_code(self, cdist_object, context):
+        """Run the code-* script for the given object.
+        """
+        cdist_type = self.get_type(cdist_object['type'])
+        script = os.path.join(self.get_object_path(cdist_object, context), 'code-%s' % context)
+
+        if not os.path.isfile(script):
+            return
+
+        env = {
+            '__object': self.get_object_path(cdist_object, context),
+            '__object_id': cdist_object['object-id'],
+            '__object_name': cdist_object.name,
+        }
+        self.log.debug("Running code-%s for object %s", context, cdist_object)
+        _context = getattr(self, context)
+        yield from _context.check_call([script], env=env, shell=True)
+
+    def run_code_local(self, cdist_object):
+        """Run the code-local script for the given object.
+        """
+        return self._run_code(cdist_object, 'local')
+
+    def run_code_remote(self, cdist_object):
+        """Run the code-remote script for the given object on the target.
+        """
+        return self._run_code(cdist_object, 'remote')
+
