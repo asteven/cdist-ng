@@ -141,7 +141,7 @@ class Session(dict):
         self['session-id'] = time.strftime('%Y-%m-%d-%H:%M:%S-{0}-{1}'.format(
             socket.getfqdn(), os.getpid())
         )
-        self['exec-path'] = '/path/to/bin/cdist'
+        self['exec-path'] = '/bin/echo'
         self['remote-cache-dir'] = os.path.join('/var/cache/cdist', self['session-id'])
         self.targets = targets or []
 
