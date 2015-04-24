@@ -13,6 +13,7 @@ class Runtime(object):
     """
 
     def __init__(self, session, target, local_session_dir):
+        self.log = logging.getLogger('cdist')
         self.session = session
         self.target = target
         self.local_session_dir = local_session_dir
@@ -142,7 +143,7 @@ class Runtime(object):
     def run_global_explorers(self):
         """Run all global explorers and save their output in the session.
         """
-        logging.debug('Running global explorers')
+        self.log.debug('Running global explorers')
         yield from self.transfer_global_explorers()
         # execute explorers in parallel
         tasks = []
@@ -172,7 +173,7 @@ class Runtime(object):
             '__explorer': self.path['remote']['explorer'],
         }
 
-        logging.debug("Running type explorer '%s' for object %s", explorer_name, cdist_object)
+        self.log.debug("Running type explorer '%s' for object %s", explorer_name, cdist_object)
         explorer = os.path.join(remote_explorer_path, explorer_name)
         result = yield from self.remote.check_output([explorer], env=env)
         return result
@@ -205,9 +206,9 @@ class Runtime(object):
         """
         if cdist_type['explorer']:
             if cdist_type.name in self._type_explorers_transferred:
-                logging.debug('Skipping retransfer of type explorers for: %s', cdist_type)
+                self.log.debug('Skipping retransfer of type explorers for: %s', cdist_type)
             else:
-                logging.debug("Transfering type explorers for type: %s", cdist_type)
+                self.log.debug("Transfering type explorers for type: %s", cdist_type)
                 source = os.path.join(self.path['local']['type'], cdist_type.path['explorer'])
                 destination = os.path.join(self.path['remote']['type'], cdist_type.path['explorer'])
                 yield from self.remote.transfer(source, destination)
@@ -220,7 +221,7 @@ class Runtime(object):
         """Transfer the parameters for the given object to the target.
         """
         if cdist_object['parameter']:
-            logging.debug("Transfering object parameters for object: %s", cdist_object)
+            self.log.debug("Transfering object parameters for object: %s", cdist_object)
             source = os.path.join(
                 self.get_object_path(cdist_object, 'local'),
                 'parameter'
@@ -243,7 +244,7 @@ class Runtime(object):
             '__explorer': self.path['target']['explorer'],
         }
 
-        logging.debug('Running initial manifest: %s', manifest)
+        self.log.debug('Running initial manifest: %s', manifest)
         yield from self.local.check_call([manifest], env=env)
 
     def list_object_names(self):
