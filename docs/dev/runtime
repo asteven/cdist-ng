@@ -40,22 +40,41 @@ loop = asyncio.get_event_loop()
 
 loop.run_until_complete(_runtime.run_global_explorers())
 
-_target
+loop.run_until_complete(_runtime.run_initial_manifest())
 
 
 # manually create a object to have something to work with
-_type = _runtime.get_type('__service')
-_object = _type('foobard', parameters={'enabled': True, 'running': True})
+_type = _runtime.get_type('__file')
+_object = _type('/tmp/test', parameters={'state': 'present'})
 _object_dir = _runtime.get_object_path(_object, 'local')
 os.makedirs(_object_dir)
 _object.to_dir(_object_dir)
+
+loop.run_until_complete(_runtime.run_type_manifest(_object))
+
+
+--------------------------------------------------------------------------------
+# object which has a manifest
+
+loop.run_until_complete(_runtime.run_global_explorers())
+
+# manually create a object to have something to work with
+_type = _runtime.get_type('__timezone')
+_object = _type('Europe/Zurich')
+_object_dir = _runtime.get_object_path(_object, 'local')
+os.makedirs(_object_dir)
+_object.to_dir(_object_dir)
+
+loop.run_until_complete(_runtime.run_type_manifest(_object))
+
+--------------------------------------------------------------------------------
+
 
 #loop.run_until_complete(_runtime.transfer_type_explorers(_type))
 #loop.run_until_complete(_runtime.transfer_object_parameters(_object))
 
 loop.run_until_complete(_runtime.run_type_explorers(_object))
 
-loop.run_until_complete(_runtime.run_initial_manifest())
 
 --------------------------------------------------------------------------------
 
