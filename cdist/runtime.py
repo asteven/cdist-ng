@@ -75,7 +75,6 @@ class Runtime(object):
                 '__cdist_object_marker': self.target['object-marker'],
                 '__cdist_log_level': logging.getLevelName(self.log.getEffectiveLevel()),
                 '__target_url': self.target['url'],
-                'CDIST_INTERNAL': 'yes',
             }
             for key,value in self.target['target'].items():
                 if value:
