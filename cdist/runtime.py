@@ -39,6 +39,8 @@ class Runtime(object):
 
             path = {
                 'target': {
+                    'copy': opj(target_path, self.target.remote_copy),
+                    'exec': opj(target_path, self.target.remote_exec),
                     'explorer': opj(target_path, 'explorer'),
                     'object': opj(target_path, 'object'),
                     'messages': opj(target_path, 'messages'),
@@ -56,8 +58,6 @@ class Runtime(object):
                 },
                 'remote': {
                     'cache': self.remote_session_dir,
-                    'copy': opj(target_path, self.target.remote_copy),
-                    'exec': opj(target_path, self.target.remote_exec),
                     'explorer': opj(self.remote_session_dir, 'conf', 'explorer'),
                     'object': opj(self.remote_session_dir, 'object'),
                     'type': opj(self.remote_session_dir, 'conf', 'type'),

@@ -136,7 +136,7 @@ class Remote(Base):
         """
         with (yield from self.runtime.exec_semaphore):
             log.debug('remote exec: command=%s, kwargs=%s', command, kwargs)
-            _command = [self.runtime.path['remote']['exec']]
+            _command = [self.runtime.path['target']['exec']]
 
             # export target_host for use in remote-{exec,copy} scripts
             os_environ = os.environ.copy()
@@ -172,7 +172,7 @@ class Remote(Base):
             os_environ = os.environ.copy()
             os_environ.update(self.runtime.environ)
 
-            code = '%s %s %s' % (self.runtime.path['remote']['copy'], source, destination)
+            code = '%s %s %s' % (self.runtime.path['target']['copy'], source, destination)
             process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
             exit_code = yield from process.wait()
             log.debug('copy exit code: %d', exit_code)
