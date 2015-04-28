@@ -19,6 +19,7 @@
 #
 #
 
+import sys
 import os
 import urllib
 import time
@@ -136,12 +137,12 @@ class Session(dict):
             target_path = os.path.join(targets_base_path, target.identifier)
             target.to_dir(target_path)
 
-    def __init__(self, targets=None):
+    def __init__(self, targets=None, exec_path=None):
         super().__init__(cconfig.from_schema(self.schema))
         self['session-id'] = time.strftime('%Y-%m-%d-%H:%M:%S-{0}-{1}'.format(
             socket.getfqdn(), os.getpid())
         )
-        self['exec-path'] = '/bin/echo'
+        self['exec-path'] = exec_path or sys.argv[0]
         self['remote-cache-dir'] = os.path.join('/var/cache/cdist', self['session-id'])
         self.targets = targets or []
 
