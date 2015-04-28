@@ -32,6 +32,7 @@ class Base(object):
 
     def __init__(self, runtime):
         self.runtime = runtime
+        self.environ = runtime.environ.copy()
 
     @asyncio.coroutine
     def call(self, *args, timeout=None, **kwargs):
@@ -140,7 +141,7 @@ class Remote(Base):
 
             # export target_host for use in remote-{exec,copy} scripts
             os_environ = os.environ.copy()
-            os_environ.update(self.runtime.environ)
+            os_environ.update(self.environ)
 
             # can't pass environment to remote side, so prepend command with
             # variable declarations
@@ -170,7 +171,7 @@ class Remote(Base):
 
             # export target_host for use in remote-{exec,copy} scripts
             os_environ = os.environ.copy()
-            os_environ.update(self.runtime.environ)
+            os_environ.update(self.environ)
 
             code = '%s %s %s' % (self.runtime.path['target']['copy'], source, destination)
             process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
@@ -179,6 +180,17 @@ class Remote(Base):
 
 
 class Local(Base):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        rtp = self.runtime.path
+        self.environ.update({
+            '__cdist_local_session': rtp['local']['session'],
+            '__cdist_local_target': rtp['local']['target'],
+            '__remote_copy': rtp['target']['copy'],
+            '__remote_exec': rtp['target']['exec'],
+            'CDIST_INTERNAL': 'yes',
+        })
 
     @asyncio.coroutine
     def mkdir(self, path):
@@ -204,7 +216,7 @@ class Local(Base):
 
         # export target_host for use in remote-{exec,copy} scripts
         os_environ = os.environ.copy()
-        os_environ.update(self.runtime.environ)
+        os_environ.update(self.environ)
 
         # Add user supplied environment variables if any
         if 'env' in kwargs:

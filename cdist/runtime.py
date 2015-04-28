@@ -74,10 +74,6 @@ class Runtime(object):
             environ = {
                 '__cdist_object_marker': self.target['object-marker'],
                 '__cdist_log_level': logging.getLevelName(self.log.getEffectiveLevel()),
-                '__cdist_local_session': self.path['local']['session'],
-                '__cdist_local_target': self.path['local']['target'],
-                '__remote_copy': self.path['remote']['copy'],
-                '__remote_exec': self.path['remote']['exec'],
                 '__target_url': self.target['url'],
                 'CDIST_INTERNAL': 'yes',
             }
