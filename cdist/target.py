@@ -119,7 +119,8 @@ class Target(dict):
         pr = urllib.parse.urlparse(target)
         target = {
             'scheme': pr.scheme,
-            'user': pr.username,
+            # FIXME: make default user configurable
+            'user': pr.username or 'root',
             'host': pr.hostname,
             'port': pr.port,
             'path': pr.path,
