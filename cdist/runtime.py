@@ -50,6 +50,8 @@ class Runtime(object):
                     'global': target_path,
                     'manifest': opj(self.local_session_dir, 'conf', 'manifest'),
                     'object': opj(target_path, 'object'),
+                    'session': self.local_session_dir,
+                    'target': target_path,
                     'type': opj(self.local_session_dir, 'conf', 'type'),
                 },
                 'remote': {
@@ -71,6 +73,9 @@ class Runtime(object):
         if self.__environ is None:
             environ = {
                 '__cdist_object_marker': self.target['object-marker'],
+                '__cdist_log_level': logging.getLevelName(self.log.getEffectiveLevel()),
+                '__cdist_local_session': self.path['local']['session'],
+                '__cdist_local_target': self.path['local']['target'],
                 '__remote_copy': self.path['remote']['copy'],
                 '__remote_exec': self.path['remote']['exec'],
                 '__target_url': self.target['url'],
@@ -87,6 +92,13 @@ class Runtime(object):
         """
         target_path = os.path.join(self.local_session_dir, 'targets', self.target.identifier)
         self.target.to_dir(target_path)
+
+    def create_object(self, cdist_object):
+        """Create new object on disk.
+        """
+        object_path = self.get_object_path(cdist_object, 'local')
+        os.makedirs(object_path)
+        cdist_object.to_dir(object_path)
 
     def sync_object(self, cdist_object):
         """Sync changes to the cdist object to disk.
@@ -284,6 +296,7 @@ class Runtime(object):
                         new_messages = True
                         self.target['messages'].append('%s:%s' % (prefix, message))
                 if new_messages:
+                    # write changes to disk
                     # FIXME: does this belong here? or better in the caller? elsewhere?
                     self.sync_target()
             # remove temporary files
@@ -298,7 +311,7 @@ class Runtime(object):
 
         env = {
             'PATH': "%s:%s" % (self.path['local']['bin'], os.environ['PATH']),
-            '__global': self.local_session_dir,
+            '__global': self.path['local']['global'],
             '__cdist_manifest': manifest,
             '__manifest': self.path['local']['manifest'],
             '__explorer': self.path['target']['explorer'],
