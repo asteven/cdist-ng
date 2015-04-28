@@ -29,6 +29,12 @@ cdist explorer --explorer hostname,os,os_version target.example.com
 - deploy application to target machine
 - think capistrano or fabric
 
+### help ###
+- show help for cdist types, maybe others
+
+### man ###
+- show man pages of cdist types, maybe others
+
 
 ## internal commands ##
 Only available from within cdist types.
