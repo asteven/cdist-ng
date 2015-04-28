@@ -13,7 +13,8 @@ from cdist import session
 from cdist import runtime
 
 
-_session = session.Session()
+#_session = session.Session(exec_path='/bin/echo')
+_session = session.Session(exec_path='/home/sar/.virtualenvs/cdist-ng/bin/cdng')
 _session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
 _session.add_conf_dir(os.path.expanduser('~/.cdist'))
 _session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
