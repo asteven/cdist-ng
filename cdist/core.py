@@ -170,3 +170,28 @@ class CdistObject(dict):
         object_id = os.sep.join(object_name.split(os.sep)[1:])
         return type_name, object_id
 
+    @staticmethod
+    def sanitise_object_id(object_id):
+        """Remove a single leading and trailing slash.
+        """
+
+        # Allow empty object id for singletons
+        if object_id:
+            # Remove leading slash
+            if object_id[0] == '/':
+                object_id = object_id[1:]
+
+            # Remove trailing slash
+            if object_id[-1] == '/':
+                object_id = object_id[:-1]
+        return object_id
+
+    @staticmethod
+    def validate_object_id(object_id):
+        """Validate the given object_id and raise IllegalObjectIdError if it's not valid.
+        """
+        if object_id:
+            if '//' in object_id:
+                raise IllegalObjectIdError(object_id, 'object_id may not contain //')
+            if object_id == '.':
+                raise IllegalObjectIdError(object_id, 'object_id may not be a .')
