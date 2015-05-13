@@ -24,6 +24,9 @@ import os
 import cconfig
 
 
+from . import exceptions
+
+
 class CdistType(dict):
     """Represents a cdist type.
     """
@@ -192,6 +195,6 @@ class CdistObject(dict):
         """
         if object_id:
             if '//' in object_id:
-                raise IllegalObjectIdError(object_id, 'object_id may not contain //')
+                raise exceptions.IllegalObjectIdError(object_id, 'object_id may not contain //')
             if object_id == '.':
-                raise IllegalObjectIdError(object_id, 'object_id may not be a .')
+                raise exceptions.IllegalObjectIdError(object_id, 'object_id may not be a .')
