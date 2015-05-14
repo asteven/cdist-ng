@@ -13,6 +13,16 @@ from cdist.core import CdistObject
 from cdist.cli import utils
 
 
+def get_env(name):
+    """Return the value of the given environment variable or raise
+    a `MissingRequiredEnvironmentVariableError` if it is not defined.
+    """
+    try:
+        return os.environ[name]
+    except KeyError as e:
+        raise exceptions.MissingRequiredEnvironmentVariableError(e.args[0])
+
+
 class EmulatorCommand(click.Command):
     def __init__(self, log, runtime, type_name):
         self.log = log
@@ -74,16 +84,27 @@ class EmulatorCommand(click.Command):
         if not if_tag.isdisjoint(not_if_tag):
             raise exceptions.ConflictingTagsError('Options \'if-tag\' and \'not-if-tag\' have conflicting values: %s vs %s' % (if_tag, not_if_tag))
 
-
+        # Validate object id
+        object_id = None
         if not self._type['singleton']:
             object_id = kwargs.pop('object_id')
-        else:
-            object_id = None
-        object_id = CdistObject.sanitise_object_id(object_id)
-        CdistObject.validate_object_id(object_id)
+            object_id = CdistObject.sanitise_object_id(object_id)
+            CdistObject.validate_object_id(object_id)
+
+        # TODO: check if object exists with conflicting parameters
+
+        # Create object
         _object = self._type(object_id=object_id, parameters=kwargs)
         self.log.debug('object: %s', _object)
         self._runtime.create_object(_object)
+
+        # Remember in which manifest the object was defined
+        _source = get_env('__cdist_manifest')
+        _object['source'].append(_source)
+
+        # TODO: save stdin if any
+        # TODO: register dependencies
+
 
 
 @click.command(name='emulator', add_help_option=False, context_settings=dict(
@@ -93,17 +114,18 @@ class EmulatorCommand(click.Command):
 @click.argument('type_name', nargs=1)
 @click.argument('type_args', nargs=-1, type=click.UNPROCESSED)
 def main(ctx, type_name, type_args):
-    '''Type emulator
-    '''
+    """Type emulator
+    """
     log = ctx.obj['log']
     log.debug('ctx.args: %s', ctx.args)
     log.debug('ctx.params: %s', ctx.params)
     log.debug('type_name: %s', type_name)
     log.debug('type_args: %s', type_args)
 
-    _session = session.Session.from_dir(os.environ['__cdist_local_session'])
-    _target = target.Target.from_dir(os.environ['__cdist_local_target'])
-    _runtime = runtime.Runtime(_session, _target, os.environ['__cdist_local_session'])
+    session_dir = get_env('__cdist_local_session')
+    _session = session.Session.from_dir(session_dir)
+    _target = target.Target.from_dir(get_env('__cdist_local_target'))
+    _runtime = runtime.Runtime(_session, _target, session_dir)
 
     exit_code = 0
     try:
