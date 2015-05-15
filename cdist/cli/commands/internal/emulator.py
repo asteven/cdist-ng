@@ -67,7 +67,7 @@ class EmulatorCommand(click.Command):
         for param_name in self._type['parameter']['optional_multiple']:
             params.append(click.Option(('--'+ param_name,), multiple=True, default=defaults.get(param_name, None)))
         for param_name in self._type['parameter']['boolean']:
-            params.append(click.Option(('--'+ param_name,), is_flag=True, default=defaults.get(param_name, None)))
+            params.append(click.Option(('--'+ param_name,), is_flag=True))
 
         if not self._type['singleton']:
             params.append(click.Argument(('object_id',), nargs=1))
