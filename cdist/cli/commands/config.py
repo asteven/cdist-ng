@@ -12,6 +12,7 @@ from cdist.cli.utils import comma_delimited_string_to_set
 
 @asyncio.coroutine
 def configure_target(_runtime):
+    yield from _runtime.initialize()
     yield from _runtime.run_global_explorers()
     yield from _runtime.run_initial_manifest()
 

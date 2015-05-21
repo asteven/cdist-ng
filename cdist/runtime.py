@@ -29,9 +29,6 @@ class Runtime(object):
         self.copy_semaphore = asyncio.Semaphore(20)
         self.exec_semaphore = asyncio.Semaphore(50)
 
-        # Setup file permissions using umask
-        os.umask(0o077)
-
         self.local = Local(self)
         self.remote = Remote(self)
 
@@ -161,6 +158,15 @@ class Runtime(object):
         for object_name in self.list_object_names():
             _object = self.get_object(object_name)
             yield _object
+
+    @asyncio.coroutine
+    def initialize(self):
+        # Setup file permissions using umask
+        os.umask(0o077)
+
+        # Create remote-session-dir with sane permissions
+        yield from self.remote.mkdir(self.remote_session_dir)
+        yield from self.remote.check_call(['chmod', '0700', self.remote_session_dir])
 
     @asyncio.coroutine
     def transfer_global_explorers(self):
