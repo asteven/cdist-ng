@@ -74,9 +74,9 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
     _session.add_conf_dir(os.path.expanduser('~/.cdist'))
     _session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
 
-    # override remote-cache-dir for testing
+    # override remote-session-dir for testing
     #_remote_session_dir = tempfile.mkdtemp(prefix='cdist-remote-')
-    #_session['remote-cache-dir'] = os.path.join(_remote_session_dir, _session['session-id'])
+    #_session['remote-session-dir'] = os.path.join(_remote_session_dir, _session['session-id'])
 
 
     #url = 'ssh+sudo+chroot://root@netboot-dev.ethz.ch/local/nfsroot/preos'
@@ -87,7 +87,7 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
     print(local_session_dir)
     _session.to_dir(local_session_dir)
 
-    remote_session_dir = _session['remote-cache-dir']
+    remote_session_dir = _session['remote-session-dir']
 
     # Create a list of asyncio tasks, one for each runtime.
     tasks = []

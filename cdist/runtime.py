@@ -56,7 +56,6 @@ class Runtime(object):
                 },
                 'local': {
                     'bin': opj(self.local_session_dir, 'bin'),
-                    'cache': self.local_session_dir,
                     'explorer': opj(self.local_session_dir, 'conf', 'explorer'),
                     'global': target_path,
                     'manifest': opj(self.local_session_dir, 'conf', 'manifest'),
@@ -66,9 +65,9 @@ class Runtime(object):
                     'type': opj(self.local_session_dir, 'conf', 'type'),
                 },
                 'remote': {
-                    'cache': self.remote_session_dir,
                     'explorer': opj(self.remote_session_dir, 'conf', 'explorer'),
                     'object': opj(self.remote_session_dir, 'object'),
+                    'session': self.remote_session_dir,
                     'type': opj(self.remote_session_dir, 'conf', 'type'),
                 },
             }

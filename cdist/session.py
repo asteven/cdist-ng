@@ -103,7 +103,7 @@ class Session(dict):
         )),
         ('conf-dirs', list),
         ('exec-path', str),
-        ('remote-cache-dir', str),
+        ('remote-session-dir', str),
         ('session-id', str),
     )
     schema = cconfig.Schema(schema_decl)
@@ -143,7 +143,7 @@ class Session(dict):
             socket.getfqdn(), os.getpid())
         )
         self['exec-path'] = exec_path or sys.argv[0]
-        self['remote-cache-dir'] = os.path.join('/var/cache/cdist', self['session-id'])
+        self['remote-session-dir'] = os.path.join('/var/cache/cdist', self['session-id'])
         self.targets = targets or []
 
     def add_conf_dir(self, conf_dir):
