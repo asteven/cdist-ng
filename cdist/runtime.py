@@ -24,8 +24,14 @@ class Runtime(object):
         self.__path = None
         self.__environ = None
         self._type_explorers_transferred = []
+
+        # Limit number of concurrent copy and exec processes
         self.copy_semaphore = asyncio.Semaphore(20)
         self.exec_semaphore = asyncio.Semaphore(50)
+
+        # Setup file permissions using umask
+        os.umask(0o077)
+
         self.local = Local(self)
         self.remote = Remote(self)
 
