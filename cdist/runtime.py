@@ -35,9 +35,6 @@ class Runtime(object):
         self.local = Local(self)
         self.remote = Remote(self)
 
-    def __repr__(self):
-        return '<Runtime %s>' % self.target['url']
-
     @property
     def path(self):
         """Dictionary holding absolute paths to various local and remote folders.

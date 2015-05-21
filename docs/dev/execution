@@ -26,7 +26,6 @@ The only differences between running locally vs remotely are:
 
 
 ### plan ###
-NOTE: this does not work. Need direct control over the event loop. Can not abstract this away.
 Create a generic 'task' that holds the environment and the code to execute.
 Have a execution engine for local and another one for remote tasks.
 A task should be aware that if it has been run or not.
