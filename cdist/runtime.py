@@ -1,4 +1,5 @@
 import os
+import glob
 import asyncio
 import contextlib
 import tempfile
@@ -15,12 +16,11 @@ class Runtime(object):
     interacting with a target.
     """
 
-    def __init__(self, session, target, local_session_dir):
+    def __init__(self, target, local_session_dir, remote_session_dir):
         self.log = logging.getLogger('cdist')
-        self.session = session
         self.target = target
         self.local_session_dir = local_session_dir
-        self.remote_session_dir = self.session['remote-cache-dir']
+        self.remote_session_dir = remote_session_dir
         self.__path = None
         self.__environ = None
         self._type_explorers_transferred = []
@@ -194,13 +194,14 @@ class Runtime(object):
         yield from self.transfer_global_explorers()
         # execute explorers in parallel
         tasks = []
-        for name in self.session['conf']['explorer']:
+        explorer_names = glob.glob1(self.path['local']['explorer'], '*')
+        for name in explorer_names:
             task = asyncio.async(self.run_global_explorer(name))
             task.name = name
             tasks.append(task)
         if tasks:
             results = yield from asyncio.gather(*tasks)
-            for index,name in enumerate(self.session['conf']['explorer']):
+            for index,name in enumerate(explorer_names):
                 self.target['explorer'][name] = results[index]
             self.sync_target()
 

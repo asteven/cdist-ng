@@ -83,15 +83,16 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
     for url in target:
         _session.add_target(url)
 
-    _session_dir = tempfile.mkdtemp(prefix='cdist-session-')
-    print(_session_dir)
-    _session.to_dir(_session_dir)
+    local_session_dir = tempfile.mkdtemp(prefix='cdist-session-')
+    print(local_session_dir)
+    _session.to_dir(local_session_dir)
 
+    remote_session_dir = _session['remote-cache-dir']
 
     # Create a list of asyncio tasks, one for each runtime.
     tasks = []
     for _target in _session.targets:
-        _runtime = runtime.Runtime(_session, _target, _session_dir)
+        _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir)
         task = asyncio.async(configure_target(_runtime))
         tasks.append(task)
 

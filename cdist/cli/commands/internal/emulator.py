@@ -122,10 +122,10 @@ def main(ctx, type_name, type_args):
     log.debug('type_name: %s', type_name)
     log.debug('type_args: %s', type_args)
 
-    session_dir = get_env('__cdist_local_session')
-    _session = session.Session.from_dir(session_dir)
+    local_session_dir = get_env('__cdist_local_session')
+    remote_session_dir = get_env('__cdist_remote_session')
     _target = target.Target.from_dir(get_env('__cdist_local_target'))
-    _runtime = runtime.Runtime(_session, _target, session_dir)
+    _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir)
 
     exit_code = 0
     try:

@@ -186,6 +186,7 @@ class Local(Base):
         rtp = self.runtime.path
         self.environ.update({
             '__cdist_local_session': rtp['local']['session'],
+            '__cdist_remote_session': rtp['remote']['cache'],
             '__cdist_local_target': rtp['local']['target'],
             '__remote_copy': rtp['target']['copy'],
             '__remote_exec': rtp['target']['exec'],
