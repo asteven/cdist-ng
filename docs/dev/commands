@@ -20,13 +20,13 @@ cdist explorer --explorer hostname,os,os_version target.example.com
 
 
 ### config ###
-- configure one or more target machines
+- configure one or more targets
 
 ### install ###
-- install one or more target machines
+- install one or more targets
 
 ### deploy ###
-- deploy application to target machine
+- deploy an application to a target
 - think capistrano or fabric
 
 ### help ###
@@ -34,6 +34,21 @@ cdist explorer --explorer hostname,os,os_version target.example.com
 
 ### man ###
 - show man pages of cdist types, maybe others
+
+### patch ###
+- just patch what has changed since last config run
+- not sure if/how to do this, but it could give a massive speed up
+- currently just random ideas ...
+   - assume the target has not been changed manually since the last config run
+   - maybe doable by just diffing object parameters against those of the last
+     config run. But from where/how to get explorer values without running them?
+      - maybe could need to re-run explorers at the end of `config` to capture the
+        'after' state and feed that into `patch` as what would otherwise be
+        returned by running the explorers.
+   - maybe need to check which types have changed since the last config run so
+      they can be re-run
+     - would need to record current state (git?, checksum?, ?) of a type to
+       later on have a way to figure out which ones have changed
 
 
 ## internal commands ##
