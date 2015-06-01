@@ -20,8 +20,10 @@ from cdist import core
 from cdist import dependency
 
 __file = core.CdistType.from_dir('/home/sar/vcs/cdist-ng/conf/type/__file')
+__cdistmarker = core.CdistType.from_dir('/home/sar/vcs/cdist/cdist/conf/type/__cdistmarker')
 
 objects = [
+   __cdistmarker(),
    __file('tmp/cdist-test-file-a'),
    __file('tmp/cdist-test-file-b'),
    __file('tmp/cdist-test-file-c'),
@@ -37,6 +39,9 @@ manager.require('__file/tmp/cdist-test-file-c', '__file/tmp/cdist-test-file-a')
 
 # __file /tmp/cdist-test-file-d --before __file/tmp/cdist-test-file-b
 manager.before('__file/tmp/cdist-test-file-d', '__file/tmp/cdist-test-file-b')
+
+manager.after('__cdistmarker', '__file/*')
+
 
 resolver = dependency.DependencyResolver(objects, manager)
 import pprint
