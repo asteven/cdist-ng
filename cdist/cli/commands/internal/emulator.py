@@ -9,27 +9,44 @@ from cdist import session
 from cdist import target
 from cdist import exceptions
 from cdist import runtime
+from cdist import dependency
 from cdist.core import CdistObject
 from cdist.cli import utils
 
 
-def get_env(name):
+__get_env_default = '__something_a_user_will_never_use__'
+def get_env(name, default=__get_env_default):
     """Return the value of the given environment variable or raise
     a `MissingRequiredEnvironmentVariableError` if it is not defined.
     """
     try:
         return os.environ[name]
     except KeyError as e:
+        if default is not __get_env_default:
+            return default
         raise exceptions.MissingRequiredEnvironmentVariableError(e.args[0])
 
 
 class EmulatorCommand(click.Command):
-    def __init__(self, log, runtime, type_name):
+    def __init__(self, log, runtime, type_name, stdin=sys.stdin.buffer):
         self.log = log
         self._runtime = runtime
         self._type_name = type_name
+        self._stdin = stdin
         self._type = runtime.get_type(self._type_name)
         super().__init__(type_name, callback=self.run, params=self.get_type_params())
+        self.__dpm = None
+
+    @property
+    def dependency(self):
+        """Lazy initialized dependency manager.
+        """
+        if self.__dpm is None:
+            self.__dpm = dependency.DependencyManager(os.path.join(
+                self._runtime.path['local']['target'],
+                'dependency'
+            ))
+        return self.__dpm
 
     def get_type_params(self):
         params = []
@@ -73,6 +90,28 @@ class EmulatorCommand(click.Command):
             params.append(click.Argument(('object_id',), nargs=1))
         return params
 
+    chunk_size = 65536
+    def _read_stdin(self):
+        return self._stdin.read(self.chunk_size)
+
+    def save_stdin(self, cdist_object):
+        """If something is written to stdin, save it in the object as
+        $__object/stdin so it can be accessed in manifest and gencode-*
+        scripts.
+        """
+        if not self._stdin.isatty():
+            try:
+                # go directly to file instead of using CdistObject's api
+                # as that does not support streaming
+                path = self._runtime.get_object_path(cdist_object, 'stdin')
+                with open(path, 'wb') as fd:
+                    chunk = self._read_stdin()
+                    while chunk:
+                        fd.write(chunk)
+                        chunk = self._read_stdin()
+            except EnvironmentError as e:
+                raise exceptions.CdistError('Failed to read from stdin: %s' % e)
+
     def run(self, *args, **kwargs):
         self.log.debug('args: %s', args)
         self.log.debug('kwargs: %s', kwargs)
@@ -84,6 +123,13 @@ class EmulatorCommand(click.Command):
         if not if_tag.isdisjoint(not_if_tag):
             raise exceptions.ConflictingTagsError('Options \'if-tag\' and \'not-if-tag\' have conflicting values: %s vs %s' % (if_tag, not_if_tag))
 
+        # Take dependencies out of kwargs for later processing
+        deps = {
+            'require': kwargs.pop('require'),
+            'after': kwargs.pop('after'),
+            'before': kwargs.pop('before'),
+        }
+
         # Validate object id
         object_id = None
         if not self._type['singleton']:
@@ -93,18 +139,30 @@ class EmulatorCommand(click.Command):
 
         # TODO: check if object exists with conflicting parameters
 
-        # Create object
+        # Instantiate object
         _object = self._type(object_id=object_id, parameters=kwargs)
         self.log.debug('object: %s', _object)
-        self._runtime.create_object(_object)
 
         # Remember in which manifest the object was defined
         _source = get_env('__cdist_manifest')
         _object['source'].append(_source)
 
-        # TODO: save stdin if any
-        # TODO: register dependencies
+        # Create object on disk
+        self._runtime.create_object(_object)
 
+        # Save stdin if any
+        self.save_stdin(_object)
+
+        # Register dependencies
+        for name in deps['require']:
+            self.dependency.require(_object.name, name)
+        for name in deps['before']:
+            self.dependency.before(_object.name, name)
+        for name in deps['after']:
+            self.dependency.after(_object.name, name)
+        __object_name = get_env('__object_name', None)
+        if __object_name:
+            self.dependency.auto(__object_name, _object.name)
 
 
 @click.command(name='emulator', add_help_option=False, context_settings=dict(
