@@ -61,10 +61,10 @@ class DependencyManager(object):
         """Record a before dependency
         __me --before __other
         """
-        with DependencyDatabase(self.base_path, other) as db:
-            _list = db['after']
-            if not me in _list:
-                _list.append(me)
+        with DependencyDatabase(self.base_path, me) as db:
+            _list = db['before']
+            if not other in _list:
+                _list.append(other)
 
     def auto(self, parent, child):
         """Record a auto dependency"""
@@ -86,8 +86,9 @@ class DependencyDatabase(dict):
     def reset(self):
         dict.clear(self)
         self['object'] = self.name
-        self['after'] = []
         self['require'] = []
+        self['after'] = []
+        self['before'] = []
         self['auto'] = []
 
     def load(self):
@@ -107,7 +108,7 @@ class DependencyDatabase(dict):
                 json.dump(self, fp)
 
     def __repr__(self):
-        return '<{0.name} require:{0[require]} after:{0[after]} auto:{0[auto]}>'.format(self)
+        return '<{0.name} require:{0[require]} after:{0[after]} before:{0[before]} aauto:{0[auto]}>'.format(self)
 
     # context manager interface
     def __enter__(self):
@@ -187,6 +188,10 @@ class DependencyResolver(object):
         """
         for cdist_object in self.objects.values():
             deps = self.manager[cdist_object.name]
+            if deps['before']:
+                for before_requirement in self.find_requirements_by_name(deps['before']):
+                    before_requirement_deps = self.manager[before_requirement.name]
+                    before_requirement_deps['after'].append(cdist_object.name)
             if deps['auto']:
                 # The objects (children) that this cdist_object (parent) defined
                 # in it's type manifest shall inherit all explicit requirements
