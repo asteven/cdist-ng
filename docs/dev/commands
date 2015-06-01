@@ -42,11 +42,11 @@ cdist explorer --explorer hostname,os,os_version target.example.com
    - assume the target has not been changed manually since the last config run
    - maybe doable by just diffing object parameters against those of the last
      config run. But from where/how to get explorer values without running them?
-      - maybe could need to re-run explorers at the end of `config` to capture the
+      - maybe would need to re-run explorers at the end of `config` to capture the
         'after' state and feed that into `patch` as what would otherwise be
         returned by running the explorers.
    - maybe need to check which types have changed since the last config run so
-      they can be re-run
+      only those can be re-run
      - would need to record current state (git?, checksum?, ?) of a type to
        later on have a way to figure out which ones have changed
 

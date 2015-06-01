@@ -25,22 +25,17 @@ The only differences between running locally vs remotely are:
 - how directories are created and removed
 
 
-### plan ###
-Create a generic 'task' that holds the environment and the code to execute.
-Have a execution engine for local and another one for remote tasks.
-A task should be aware that if it has been run or not.
-Running it again should be a noop.
+It should be possible to create a generic base class with common functionallity.
+This would cut on redundant code and ensure a common/consistent interface between
+local and remote.
+
 
 --------------------------------------------------------------------------------
 
 ## use case: global explorers ##
-input:
-- dict of explorer name -> executable pairs
 
-output:
-- dict of explorer name -> output of running explorer pairs
-
-sequence:
+### execution sequence ###
 - transfer all global explorers in parallel
 - run all global explorers in parallel
 - save result of running global explorers to target dir
+
