@@ -1,0 +1,48 @@
+--require
+   - require the given object to be fully realised before running me
+      - I can not run at all until it has been realised
+      - this usually means that my explorers depend on something the other
+         object changes
+
+--after
+   - require the given object to be realised before me
+      - my explorers do not depend on anything the given object changes
+      - my code-{local,remote} do depend on the given object being realised
+         - the code-{local,remote} of the object have to be run before my own
+           code-{local,remote} scripts.
+
+--before
+   - require me to be realized before the given object. The opposite of --after
+
+--------------------------------------------------------------------------------
+
+from cdist import core
+from cdist import dependency
+
+__file = core.CdistType.from_dir('/home/sar/vcs/cdist-ng/conf/type/__file')
+
+objects = [
+   __file('tmp/cdist-test-file-a'),
+   __file('tmp/cdist-test-file-b'),
+   __file('tmp/cdist-test-file-c'),
+   __file('tmp/cdist-test-file-d'),
+]
+
+manager = dependency.DependencyManager('/tmp/dpm')
+# __file /tmp/cdist-test-file-b --after __file/tmp/cdist-test-file-a
+manager.after('__file/tmp/cdist-test-file-b', '__file/tmp/cdist-test-file-a')
+
+# __file /tmp/cdist-test-file-c --require __file/tmp/cdist-test-file-a
+manager.require('__file/tmp/cdist-test-file-c', '__file/tmp/cdist-test-file-a')
+
+# __file /tmp/cdist-test-file-d --before __file/tmp/cdist-test-file-b
+manager.before('__file/tmp/cdist-test-file-d', '__file/tmp/cdist-test-file-b')
+
+resolver = dependency.DependencyResolver(objects, manager)
+import pprint
+pprint.pprint(resolver.dependencies)
+
+
+for o in resolver:
+   print(o)
+
