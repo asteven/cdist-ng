@@ -9,6 +9,7 @@ import logging
 
 from .execution import Local, Remote
 from .core import CdistType, CdistObject
+from . import dependency
 
 
 class Runtime(object):
@@ -16,13 +17,17 @@ class Runtime(object):
     interacting with a target.
     """
 
-    def __init__(self, target, local_session_dir, remote_session_dir):
-        self.log = logging.getLogger('cdist')
+    OBJECT_PREPARED = 'prepared'
+    OBJECT_DONE = 'done'
+
+    def __init__(self, target, local_session_dir, remote_session_dir, logger=None):
         self.target = target
         self.local_session_dir = local_session_dir
         self.remote_session_dir = remote_session_dir
+        self.log = logger or logging.getLogger('cdist')
         self.__path = None
         self.__environ = None
+        self.__dependency = None
         self._type_explorers_transferred = []
 
         # Limit number of concurrent copy and exec processes
@@ -86,6 +91,26 @@ class Runtime(object):
                     environ['__target_'+ key] = value
             self.__environ = environ
         return self.__environ
+
+    @property
+    def dependency(self):
+        """Lazy initialized dependency manager.
+        """
+        if self.__dependency is None:
+            self.__dependency = dependency.DependencyManager(os.path.join(
+                self.path['local']['target'],
+                'dependency'
+            ))
+        return self.__dependency
+
+    def get_dependencies(self, object_or_name):
+        """Get a objects dependencies by name or object.
+        """
+        if isinstance(object_or_name, CdistObject):
+            object_name = object_or_name.name
+        else:
+            object_name = object_or_name
+        return self.dependency[object_name]
 
     def sync_target(self):
         """Sync changes to the target to disk.
