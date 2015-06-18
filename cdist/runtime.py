@@ -115,11 +115,12 @@ class Runtime(object):
             object_name = object_or_name
         return self.dependency[object_name]
 
+    @asyncio.coroutine
     def sync_target(self):
         """Sync changes to the target to disk.
         """
         target_path = os.path.join(self.local_session_dir, 'targets', self.target.identifier)
-        self.target.to_dir(target_path)
+        yield from self.loop.run_in_executor(None, self.target.to_dir, target_path)
 
     def create_object(self, cdist_object):
         """Create new object on disk.
@@ -128,11 +129,12 @@ class Runtime(object):
         os.makedirs(object_path)
         cdist_object.to_dir(object_path)
 
+    @asyncio.coroutine
     def sync_object(self, cdist_object):
         """Sync changes to the cdist object to disk.
         """
         object_path = self.get_object_path(cdist_object, 'local')
-        cdist_object.to_dir(object_path)
+        yield from self.loop.run_in_executor(None, cdist_object.to_dir, object_path)
 
     def get_type_path(self, type_or_name, context, component=None):
         """Get the absolute path to an type by name or instance.
@@ -240,7 +242,7 @@ class Runtime(object):
             results = yield from asyncio.gather(*tasks)
             for index,name in enumerate(explorer_names):
                 self.target['explorer'][name] = results[index]
-            self.sync_target()
+            yield from self.sync_target()
 
     @asyncio.coroutine
     def run_type_explorer(self, cdist_object, explorer_name):
@@ -280,7 +282,7 @@ class Runtime(object):
             results = yield from asyncio.gather(*tasks)
             for index,name in enumerate(cdist_object['explorer']):
                 cdist_object['explorer'][name] = results[index]
-            self.sync_object(cdist_object)
+            yield from self.sync_object(cdist_object)
 
     @asyncio.coroutine
     def transfer_type_explorers(self, cdist_type):
@@ -309,7 +311,7 @@ class Runtime(object):
             yield from self.remote.transfer(source, destination)
 
     @contextlib.contextmanager
-    def messages(self, prefix, env):
+    def messages(self, prefix, env, messages):
         """Support messaging between types.
         """
         # create temporary files for new messages
@@ -331,16 +333,10 @@ class Runtime(object):
         finally:
             # merge new messages back into our global list if any
             with open(messages_out, 'r') as fd:
-                new_messages = False
                 for line in fd:
                     message = line.strip('\n')
                     if message:
-                        new_messages = True
-                        self.target['messages'].append('%s:%s' % (prefix, message))
-                if new_messages:
-                    # write changes to disk
-                    # FIXME: does this belong here? or better in the caller? elsewhere?
-                    self.sync_target()
+                        messages.append('%s:%s' % (prefix, message))
             # remove temporary files
             if os.path.exists(messages_in):
                 os.remove(messages_in)
@@ -385,8 +381,13 @@ class Runtime(object):
 
         self.log.debug("Running type manifest for object %s", cdist_object)
         message_prefix = cdist_object.name
-        with self.messages(message_prefix, env):
+        messages = []
+        with self.messages(message_prefix, env, messages):
             yield from self.local.check_call([manifest], env=env)
+        if messages:
+            self.target['messages'].extend(messages)
+            # write changes to disk
+            yield from self.sync_target()
 
     @asyncio.coroutine
     def _run_gencode(self, cdist_object, context):
@@ -407,8 +408,15 @@ class Runtime(object):
 
         self.log.debug("Running gencode-%s for object %s", context, cdist_object)
         message_prefix = cdist_object.name
-        with self.messages(message_prefix, env):
+        messages = []
+        result = None
+        with self.messages(message_prefix, env, messages):
             result = yield from self.local.check_output([script], env=env)
+        if messages:
+            self.target['messages'].extend(messages)
+            # write changes to disk
+            yield from self.sync_target()
+        if result:
             return result.decode('ascii').rstrip()
 
     @asyncio.coroutine
