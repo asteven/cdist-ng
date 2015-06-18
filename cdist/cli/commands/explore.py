@@ -71,6 +71,7 @@ def main(ctx, explorer, target):
     _session = session.Session()
     _session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
     _session.add_conf_dir(os.path.expanduser('~/.cdist'))
+    _session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
     if target is not '__local__':
         _session.add_target(target)
 
