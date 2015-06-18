@@ -14,6 +14,24 @@
 --before
    - require me to be realized before the given object. The opposite of --after
 
+
+--------------------------------------------------------------------------------
+
+## Processing objects
+
+### prepare
+
+- skip objects that have a 'require' dependency
+- prepare all others
+
+### run
+- find and run objects that are required by others
+- prepare objects skipped due to 'require' dependency
+- first run objects
+
+
+
+
 --------------------------------------------------------------------------------
 
 from cdist import core
@@ -50,4 +68,87 @@ pprint.pprint(resolver.dependencies)
 
 for o in resolver:
    print(o)
+
+--------------------------------------------------------------------------------
+
+import tempfile
+import os
+import asyncio
+from cdist import session
+from cdist import runtime
+from cdist import core
+from cdist import manager
+
+_session = session.Session()
+_session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
+_session.add_conf_dir(os.path.expanduser('~/.cdist'))
+_session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
+
+_session.add_target('localhost')
+
+
+local_session_dir = tempfile.mkdtemp(prefix='cdist-session-')
+print(local_session_dir)
+_session.to_dir(local_session_dir)
+
+remote_session_dir = _session['remote-session-dir']
+_target = _session.targets[0]
+_runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir)
+
+
+__file = core.CdistType.from_dir('/home/sar/vcs/cdist-ng/conf/type/__file')
+__cdistmarker = core.CdistType.from_dir('/home/sar/vcs/cdist/cdist/conf/type/__cdistmarker')
+
+objects = [
+   __cdistmarker(),
+   __file('tmp/cdist-test-file-a'),
+   __file('tmp/cdist-test-file-b'),
+   __file('tmp/cdist-test-file-c'),
+   __file('tmp/cdist-test-file-d'),
+]
+
+# __file /tmp/cdist-test-file-b --after __file/tmp/cdist-test-file-a
+_runtime.dependency.after('__file/tmp/cdist-test-file-b', '__file/tmp/cdist-test-file-a')
+
+# __file /tmp/cdist-test-file-c --require __file/tmp/cdist-test-file-a
+_runtime.dependency.require('__file/tmp/cdist-test-file-c', '__file/tmp/cdist-test-file-a')
+
+# __file /tmp/cdist-test-file-d --before __file/tmp/cdist-test-file-b
+#_runtime.dependency.before('__file/tmp/cdist-test-file-d', '__file/tmp/cdist-test-file-b')
+
+#_runtime.dependency.after('__cdistmarker', '__file/*')
+
+
+om = manager.ObjectManager(_runtime)
+for o in objects:
+    om.add(o)
+
+tasks = []
+for o in objects:
+    task = asyncio.async(om.prepare(
+        om.events['prepare'][o.name],
+        o,
+    ))
+    tasks.append(o)
+    task = asyncio.async(om.apply(
+        om.events['apply'][o.name],
+        o,
+    ))
+    tasks.append(o)
+
+# Execute the tasks in parallel using asyncio.
+loop = asyncio.get_event_loop()
+
+@asyncio.coroutine
+def configure_target(_runtime):
+    yield from _runtime.initialize()
+    yield from _runtime.run_global_explorers()
+    yield from _runtime.run_initial_manifest()
+
+loop.run_until_complete(configure_target(_runtime))
+
+results = []
+if tasks:
+    results = loop.run_until_complete(asyncio.gather(*tasks))
+loop.close()
 

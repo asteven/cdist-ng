@@ -127,7 +127,7 @@ class EmulatorCommand(click.Command):
         deps = {
             'require': kwargs.pop('require'),
             'after': kwargs.pop('after'),
-            'before': kwargs.pop('before'),
+            #'before': kwargs.pop('before'),
         }
 
         # Validate object id
@@ -156,8 +156,8 @@ class EmulatorCommand(click.Command):
         # Register dependencies
         for name in deps['require']:
             self.dependency.require(_object.name, name)
-        for name in deps['before']:
-            self.dependency.before(_object.name, name)
+        #for name in deps['before']:
+        #    self.dependency.before(_object.name, name)
         for name in deps['after']:
             self.dependency.after(_object.name, name)
         __object_name = get_env('__object_name', None)
@@ -183,7 +183,7 @@ def main(ctx, type_name, type_args):
     local_session_dir = get_env('__cdist_local_session')
     remote_session_dir = get_env('__cdist_remote_session')
     _target = target.Target.from_dir(get_env('__cdist_local_target'))
-    _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir)
+    _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir, logger=log)
 
     exit_code = 0
     try:

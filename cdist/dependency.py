@@ -144,6 +144,7 @@ class DependencyResolver(object):
         self.objects = dict((o.name, o) for o in objects)
         self.manager = manager
         self._dependencies = None
+        self._requirements = None
         self.log = logger or log
 
     @property
@@ -164,6 +165,24 @@ class DependencyResolver(object):
                 self._dependencies[name] = resolved
             self.log.debug(self._dependencies)
         return self._dependencies
+
+    @property
+    def requirements(self):
+        """Build the requirement graph.
+
+        Returns a dict where the keys are the object names and the values are
+        lists of all requirements including the key object itself.
+        """
+        if self._requirements is None:
+            self.log.info("Resolving requirements ...")
+            self._requirements = {}
+            for name,cdist_object in self.objects.items():
+                resolved = []
+                unresolved = []
+                self._resolve_object_requirements(cdist_object, resolved, unresolved)
+                self._requirements[name] = resolved
+            self.log.debug(self._requirements)
+        return self._requirements
 
     def find_requirements_by_name(self, requirements):
         """Takes a list of requirement patterns and returns a list of matching object instances.
@@ -239,10 +258,32 @@ class DependencyResolver(object):
         except exceptions.RequirementNotFoundError as e:
             raise exceptions.CdistObjectError(cdist_object, "requires non-existing " + e.requirement)
 
+    def _resolve_object_requirements(self, cdist_object, resolved, unresolved):
+        self.log.debug('Resolving requirements for: %s' % cdist_object.name)
+        try:
+            unresolved.append(cdist_object)
+            deps = self.manager[cdist_object.name]
+            for required_object in self.find_requirements_by_name(deps['require']):
+                self.log.debug("Object %s requires %s", cdist_object, required_object)
+                if required_object not in resolved:
+                    if required_object in unresolved:
+                        error = exceptions.CircularReferenceError(cdist_object, required_object)
+                        self.log.error('%s: %s', error, pprint.pformat(self._dependencies))
+                        raise error
+                    self._resolve_object_requirements(required_object, resolved, unresolved)
+            resolved.append(cdist_object)
+            unresolved.remove(cdist_object)
+        except exceptions.RequirementNotFoundError as e:
+            raise exceptions.CdistObjectError(cdist_object, "requires non-existing " + e.requirement)
+
+
     def __iter__(self):
         """Iterate over all unique objects and yield them in the correct order.
         """
-        iterable = itertools.chain(*self.dependencies.values())
+        values = []
+        values.extend(self.requirements.values())
+        values.extend(self.dependencies.values())
+        iterable = itertools.chain(*values)
         # Keep record of objects that have already been seen
         seen = set()
         seen_add = seen.add
