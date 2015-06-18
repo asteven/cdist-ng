@@ -1,0 +1,15 @@
+set -x
+
+#i=0
+#for i in $(seq -w 1 10); do
+#   __file /tmp/cdist-test-file-$i
+#done
+
+prefix="/tmp/file"
+__file "$prefix-a"
+__file "$prefix-b" --after "__file$prefix-a"
+__file "$prefix-c" --after "__file$prefix-a"
+__file "$prefix-d" --before "__file$prefix-b"
+
+__nested a
+__nested b --after '__nested/a'
