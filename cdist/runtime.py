@@ -20,11 +20,12 @@ class Runtime(object):
     OBJECT_PREPARED = 'prepared'
     OBJECT_DONE = 'done'
 
-    def __init__(self, target, local_session_dir, remote_session_dir, logger=None):
+    def __init__(self, target, local_session_dir, remote_session_dir, logger=None, loop=None):
         self.target = target
         self.local_session_dir = local_session_dir
         self.remote_session_dir = remote_session_dir
         self.log = logger or logging.getLogger('cdist')
+        self.loop = loop or asyncio.get_event_loop()
         self.__path = None
         self.__environ = None
         self.__dependency = None

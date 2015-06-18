@@ -21,14 +21,13 @@ class ObjectManager(object):
         self.unresolved_dependencies = {}
         #self.collector = asyncio.async(self._collect_new_objects())
 
-    #@asyncio.coroutine
+    @asyncio.coroutine
     def collect_new_objects(self):
         # TODO: make this event based
         # TODO: use unix socket or zmq or something for cdist <-> emulator communication
-        for _object in self.runtime.list_objects():
+        for _object in (yield from self.runtime.loop.run_in_executor(None, self.runtime.list_objects)):
             if _object.name not in self.objects:
                 self.add(_object)
-        #yield from asyncio.sleep(2)
 
     def add(self, _object):
         self.log.info('add: %s', _object)
@@ -100,7 +99,7 @@ class ObjectManager(object):
         self.log.info('prepare: %s', _object)
         yield from self.runtime.run_type_explorers(_object)
         yield from self.runtime.run_type_manifest(_object)
-        self.collect_new_objects()
+        yield from self.collect_new_objects()
 
     @asyncio.coroutine
     def apply(self, event, _object):
@@ -151,7 +150,7 @@ class ObjectManager(object):
 
     @asyncio.coroutine
     def process(self):
-        self.collect_new_objects()
+        yield from self.collect_new_objects()
         realize_task = asyncio.async(self.realize_objects())
         yield from self.queue.join()
         realize_task.cancel()

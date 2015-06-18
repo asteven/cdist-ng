@@ -87,16 +87,16 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
 
     remote_session_dir = _session['remote-session-dir']
 
+    loop = asyncio.get_event_loop()
+
     # Create a list of asyncio tasks, one for each runtime.
     tasks = []
     for _target in _session.targets:
-        _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir)
+        _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir, loop=loop)
         task = asyncio.async(configure_target(_runtime))
         tasks.append(task)
 
     # Execute the tasks in parallel using asyncio.
-    loop = asyncio.get_event_loop()
-
     try:
         results = []
         if tasks:
