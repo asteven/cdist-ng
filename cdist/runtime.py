@@ -29,6 +29,8 @@ class Runtime(object):
         self.__path = None
         self.__environ = None
         self.__dependency = None
+        self.__object_cache = {}
+        self.__type_cache = {}
         self._type_explorers_transferred = []
 
         # Limit number of concurrent copy and exec processes
@@ -147,9 +149,11 @@ class Runtime(object):
     def get_type(self, type_name):
         """Get a type instance by name.
         """
-        type_path = self.get_type_path(type_name, 'local')
-        _type = CdistType.from_dir(type_path)
-        return _type
+        if type_name not in self.__type_cache:
+            type_path = self.get_type_path(type_name, 'local')
+            _type = CdistType.from_dir(type_path)
+            self.__type_cache[type_name] = _type
+        return self.__type_cache[type_name]
 
     def get_object_path(self, object_or_name, context, component=None):
         """Get the absolute path to an object by name or instance.
@@ -166,11 +170,13 @@ class Runtime(object):
     def get_object(self, object_name):
         """Get a object instance by name.
         """
-        type_name, object_id = CdistObject.split_name(object_name)
-        object_path = self.get_object_path(object_name, 'local')
-        _type = self.get_type(type_name)
-        _object = _type.object_from_dir(object_path)
-        return _object
+        if object_name not in self.__object_cache:
+            type_name, object_id = CdistObject.split_name(object_name)
+            object_path = self.get_object_path(object_name, 'local')
+            _type = self.get_type(type_name)
+            _object = _type.object_from_dir(object_path)
+            self.__object_cache[object_name] = _object
+        return self.__object_cache[object_name]
 
     def list_object_names(self):
         """Return a list of object names"""
