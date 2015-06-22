@@ -25,6 +25,7 @@ def configure_target(_runtime):
     om = manager.ObjectManager(_runtime)
     yield from om.process()
 
+    yield from _runtime.finalize()
     return _runtime
 
 

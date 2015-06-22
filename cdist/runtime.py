@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import tempfile
 import shutil
+import functools
 import logging
 
 
@@ -32,6 +33,7 @@ class Runtime(object):
         self.__object_cache = {}
         self.__type_cache = {}
         self._type_explorers_transferred = []
+        self.__target_lock = asyncio.Lock()
 
         # Limit number of concurrent copy and exec processes
         self.copy_semaphore = asyncio.Semaphore(20)
@@ -116,11 +118,13 @@ class Runtime(object):
         return self.dependency[object_name]
 
     @asyncio.coroutine
-    def sync_target(self):
+    def sync_target(self, *keys):
         """Sync changes to the target to disk.
         """
         target_path = os.path.join(self.local_session_dir, 'targets', self.target.identifier)
-        yield from self.loop.run_in_executor(None, self.target.to_dir, target_path)
+        callback = functools.partial(self.target.to_dir, target_path, keys=keys)
+        with (yield from self.__target_lock):
+            yield from self.loop.run_in_executor(None, callback)
 
     def create_object(self, cdist_object):
         """Create new object on disk.
@@ -130,11 +134,14 @@ class Runtime(object):
         cdist_object.to_dir(object_path)
 
     @asyncio.coroutine
-    def sync_object(self, cdist_object):
+    def sync_object(self, cdist_object, *keys):
         """Sync changes to the cdist object to disk.
         """
         object_path = self.get_object_path(cdist_object, 'local')
-        yield from self.loop.run_in_executor(None, cdist_object.to_dir, object_path)
+        callback = functools.partial(cdist_object.to_dir, object_path, keys=keys)
+        # FIXME: do I need to a synchronize here?
+        yield from self.loop.run_in_executor(None, callback)
+        #self.loop.call_soon_threadsafe(self.loop.run_in_executor, None, callback)
 
     def get_type_path(self, type_or_name, context, component=None):
         """Get the absolute path to an type by name or instance.
@@ -195,12 +202,20 @@ class Runtime(object):
 
     @asyncio.coroutine
     def initialize(self):
+        """Initialize this runtime.
+        """
         # Setup file permissions using umask
         os.umask(0o077)
 
         # Create remote-session-dir with sane permissions
         yield from self.remote.mkdir(self.remote_session_dir)
         yield from self.remote.check_call(['chmod', '0700', self.remote_session_dir])
+
+    @asyncio.coroutine
+    def finalize(self):
+        """Finalize and cleanup this runtime.
+        """
+        yield from self.sync_target()
 
     @asyncio.coroutine
     def transfer_global_explorers(self):
@@ -242,7 +257,7 @@ class Runtime(object):
             results = yield from asyncio.gather(*tasks)
             for index,name in enumerate(explorer_names):
                 self.target['explorer'][name] = results[index]
-            yield from self.sync_target()
+            yield from self.sync_target('explorer')
 
     @asyncio.coroutine
     def run_type_explorer(self, cdist_object, explorer_name):
@@ -266,7 +281,7 @@ class Runtime(object):
     @asyncio.coroutine
     def run_type_explorers(self, cdist_object):
         """Run all type explorers for the given object and save their output in
-        the target.
+        the object.
         """
         cdist_type = self.get_type(cdist_object['type'])
         yield from self.transfer_type_explorers(cdist_type)
@@ -282,7 +297,7 @@ class Runtime(object):
             results = yield from asyncio.gather(*tasks)
             for index,name in enumerate(cdist_object['explorer']):
                 cdist_object['explorer'][name] = results[index]
-            yield from self.sync_object(cdist_object)
+            yield from self.sync_object(cdist_object, 'explorer')
 
     @asyncio.coroutine
     def transfer_type_explorers(self, cdist_type):
@@ -311,17 +326,17 @@ class Runtime(object):
             yield from self.remote.transfer(source, destination)
 
     @contextlib.contextmanager
-    def messages(self, prefix, env, messages):
+    def messages(self, prefix, env):
         """Support messaging between types.
         """
         # create temporary files for new messages
         in_fd, messages_in = tempfile.mkstemp(prefix='cdist-message-in-')
         out_fd, messages_out = tempfile.mkstemp(prefix='cdist-message-out-')
-        os.close(in_fd)
         os.close(out_fd)
 
-        # give the client a copy of the global messages file to work with
-        shutil.copyfile(self.path['target']['messages'], messages_in)
+        # give the client its own copy of the global messages list to work with
+        with os.fdopen(in_fd, 'w') as fd:
+            fd.write('\n'.join(self.target['messages']))
 
         # set environment variables for clients to use
         env['__messages_in'] = messages_in
@@ -336,7 +351,7 @@ class Runtime(object):
                 for line in fd:
                     message = line.strip('\n')
                     if message:
-                        messages.append('%s:%s' % (prefix, message))
+                        self.target['messages'].append('%s:%s' % (prefix, message))
             # remove temporary files
             if os.path.exists(messages_in):
                 os.remove(messages_in)
@@ -381,13 +396,8 @@ class Runtime(object):
 
         self.log.debug("Running type manifest for object %s", cdist_object)
         message_prefix = cdist_object.name
-        messages = []
-        with self.messages(message_prefix, env, messages):
+        with self.messages(message_prefix, env):
             yield from self.local.check_call([manifest], env=env)
-        if messages:
-            self.target['messages'].extend(messages)
-            # write changes to disk
-            yield from self.sync_target()
 
     @asyncio.coroutine
     def _run_gencode(self, cdist_object, context):
@@ -408,15 +418,8 @@ class Runtime(object):
 
         self.log.debug("Running gencode-%s for object %s", context, cdist_object)
         message_prefix = cdist_object.name
-        messages = []
-        result = None
-        with self.messages(message_prefix, env, messages):
+        with self.messages(message_prefix, env):
             result = yield from self.local.check_output([script], env=env)
-        if messages:
-            self.target['messages'].extend(messages)
-            # write changes to disk
-            yield from self.sync_target()
-        if result:
             return result.decode('ascii').rstrip()
 
     @asyncio.coroutine
