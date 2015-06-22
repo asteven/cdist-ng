@@ -139,7 +139,7 @@ class Runtime(object):
         """
         object_path = self.get_object_path(cdist_object, 'local')
         callback = functools.partial(cdist_object.to_dir, object_path, keys=keys)
-        # FIXME: do I need to a synchronize here?
+        # FIXME: do I need to synchronize here?
         yield from self.loop.run_in_executor(None, callback)
         #self.loop.call_soon_threadsafe(self.loop.run_in_executor, None, callback)
 
