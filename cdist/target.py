@@ -95,10 +95,10 @@ class Target(dict):
         obj = cls()
         return cconfig.from_dir(path, obj=obj, schema=obj.schema)
 
-    def to_dir(self, path):
+    def to_dir(self, path, keys=None):
         """Store this target instance in a directory for use by shell scripts.
         """
-        cconfig.to_dir(path, self, schema=self.schema)
+        cconfig.to_dir(path, self, schema=self.schema, keys=keys)
 
     def __init__(self, transports=None, target=None):
         super().__init__(cconfig.from_schema(self.schema))

@@ -131,10 +131,10 @@ class CdistObject(dict):
         obj = cls(schema)
         return cconfig.from_dir(path, obj=obj, schema=obj.schema)
 
-    def to_dir(self, path):
+    def to_dir(self, path, keys=None):
         """Store this cdist object instance in the given directory.
         """
-        cconfig.to_dir(path, self, schema=self.schema)
+        cconfig.to_dir(path, self, schema=self.schema, keys=keys)
 
     def __init__(self, schema, type_name=None, object_id=None):
         self.schema = schema
