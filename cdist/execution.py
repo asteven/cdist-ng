@@ -57,7 +57,7 @@ class Base(object):
         """
         returncode = yield from self.call(*args, **kwargs)
         if returncode:
-            command = kwargs.get("args")
+            command = kwargs.get('args')
             if command is None:
                 command = args[0]
             raise subprocess.CalledProcessError(returncode, command)
@@ -93,6 +93,9 @@ class Base(object):
             yield from process.wait()
             raise
         if process.returncode:
+            command = kwargs.get('args')
+            if command is None:
+                command = args[0]
             raise subprocess.CalledProcessError(process.returncode, command, output=output)
         return output
 
