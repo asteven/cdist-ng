@@ -144,7 +144,7 @@ class Runtime(object):
         #self.loop.call_soon_threadsafe(self.loop.run_in_executor, None, callback)
 
     def get_type_path(self, type_or_name, context, component=None):
-        """Get the absolute path to an type by name or instance.
+        """Get the absolute path to a type by name or instance.
         """
         if isinstance(type_or_name, CdistType):
             type_name = type_or_name.name
