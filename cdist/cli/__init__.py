@@ -52,50 +52,6 @@ def with_cprofile(func):
     return profiled_func
 
 
-class SubfolderMultiCommand(click.MultiCommand):
-    '''Loads subcommands from subfolder.
-    '''
-
-    @property
-    def command_sources(self):
-        _sources = [commands_folder]
-        if 'CDIST_INTERNAL' in os.environ:
-            _sources.append(internal_commands_folder)
-        return _sources
-
-    def list_commands(self, ctx):
-        rv = []
-        for folder in self.command_sources:
-            for filename in os.listdir(folder):
-                if filename.endswith('.py'):
-                    cmd_name = filename[:-3].replace('_', '-')
-                    rv.append(cmd_name)
-        rv.sort()
-        return rv
-
-    def get_command(self, ctx, cmd_name):
-        ns = {}
-        name = cmd_name.replace('-', '_')
-        for folder in self.command_sources:
-            fn = os.path.join(folder, name + '.py')
-            if os.path.exists(fn):
-                with open(fn) as f:
-                    code = compile(f.read(), fn, 'exec')
-                    eval(code, ns, ns)
-                return ns['main']
-
-    def main(self, **kwargs):
-        prog_name = kwargs.get('prog_name', None)
-        if prog_name is None:
-            prog_name = make_str(os.path.basename(
-                sys.argv and sys.argv[0] or __file__))
-        if prog_name.startswith('__'):
-            # inject `emulator` subcommand to handle cdist object creation
-            kwargs['prog_name'] = 'cdist'
-            kwargs['args'] = ['emulator', prog_name] + sys.argv[1:]
-        return super().main(**kwargs)
-
-
 def cdist_command(func):
     # Discover and merge commands from entry points
     entry_point_names = ['cdist.cli.commands']
