@@ -12,10 +12,21 @@ setup(
     include_package_data=True,
     install_requires=[
         'Click',
+        'click-plugins',
     ],
-    entry_points='''
-        [console_scripts]
-        cdng=cdist.cli:main
-    ''',
+    entry_points={
+        'console_scripts': [
+            'cdng = cdist.cli:main'
+        ],
+        'cdist.cli.commands': [
+            'config = cdist.cli.commands.config:main',
+            'explore = cdist.cli.commands.explore:main',
+            'run = cdist.cli.commands.run:main',
+        ],
+        'cdist.cli.internal_commands': [
+            'emulator = cdist.cli.commands.internal.emulator:main',
+            'log = cdist.cli.commands.internal.log:main',
+        ],
+    },
 )
 

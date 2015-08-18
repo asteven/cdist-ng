@@ -43,7 +43,7 @@ def run(mode, count, code):
         print('got exception:', e, flush=True)
 
 
-@click.command()
+@click.command(name='run')
 @click.option('--mode', type=click.Choice(['exec', 'shell']), default='shell')
 @click.option('--count', type=int, default=1)
 #@click.argument('code', nargs=1)
