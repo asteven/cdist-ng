@@ -1,6 +1,6 @@
 #!/bin/sh
 
-: ${XDG_RUNTIME_DIR:="$(d="/tmp/xdg-runtime-$USER"; umask 077 && mkdir "$d" && echo "$d")"}
+: ${XDG_RUNTIME_DIR:="$(d="/tmp/xdg-runtime-$USER"; umask 077 && mkdir -p "$d" && echo "$d")"}
 
 control_path_base_dir="$XDG_RUNTIME_DIR/cdist-ssh"
 [ -d "$control_path_base_dir" ] || {
@@ -8,7 +8,8 @@ control_path_base_dir="$XDG_RUNTIME_DIR/cdist-ssh"
    mkdir "$control_path_base_dir"
    chmod 700 "$control_path_base_dir"
 }
-control_path_dir="$control_path_base_dir/${__target_host##*+}"
+target_host_id="$(echo "${__target_host##*+}" | cksum | awk '{print $1}')"
+control_path_dir="$control_path_base_dir/${target_host_id}"
 [ -d "$control_path_dir" ] || {
    echo "control_path_dir: $control_path_dir" | logger
    mkdir "$control_path_dir"
@@ -19,7 +20,7 @@ exec ssh \
    -o ForwardX11=no \
    -o ControlMaster=auto \
    -o ControlPath="$control_path_dir/%r@%h:%p" \
-   -o ControlPersist=60 \
+   -o ControlPersist=10 \
    "$__target_host" "$@"
 
 #echo "$@" | /bin/sh
