@@ -38,18 +38,19 @@ class Base(object):
     def call(self, *args, timeout=None, **kwargs):
         """asyncio compatible implementation of subprocess.call
         """
-        process = yield from self.exec(*args, **kwargs)
-        try:
-            if timeout is None:
-                returncode = yield from process.wait()
-            else:
-                task = asyncio.async(process.wait())
-                returncode = yield from asyncio.wait_for(task, timeout)
-            return returncode
-        except:
-            process.kill()
-            yield from process.wait()
-            raise
+        with (yield from self.runtime.exec_semaphore):
+            process = yield from self.exec(*args, **kwargs)
+            try:
+                if timeout is None:
+                    returncode = yield from process.wait()
+                else:
+                    task = asyncio.async(process.wait())
+                    returncode = yield from asyncio.wait_for(task, timeout)
+                return returncode
+            except:
+                process.kill()
+                yield from process.wait()
+                raise
 
     @asyncio.coroutine
     def check_call(self, *args, **kwargs):
@@ -77,27 +78,28 @@ class Base(object):
         else:
             inputdata = None
 
-        process = yield from self.exec(*args, stdout=subprocess.PIPE, **kwargs)
-        try:
-            if timeout is None:
-                output, unused_err = yield from process.communicate(inputdata)
-            else:
-                task = asyncio.async(process.communicate(inputdata))
-                output, unused_err = yield from asyncio.wait_for(task, timeout)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            output, unused_err = yield from process.communicate()
-            raise subprocess.TimeoutExpired(process.args, timeout, output=output)
-        except:
-            process.kill()
-            yield from process.wait()
-            raise
-        if process.returncode:
-            command = kwargs.get('args')
-            if command is None:
-                command = args[0]
-            raise subprocess.CalledProcessError(process.returncode, command, output=output)
-        return output
+        with (yield from self.runtime.exec_semaphore):
+            process = yield from self.exec(*args, stdout=subprocess.PIPE, **kwargs)
+            try:
+                if timeout is None:
+                    output, unused_err = yield from process.communicate(inputdata)
+                else:
+                    task = asyncio.async(process.communicate(inputdata))
+                    output, unused_err = yield from asyncio.wait_for(task, timeout)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                output, unused_err = yield from process.communicate()
+                raise subprocess.TimeoutExpired(process.args, timeout, output=output)
+            except:
+                process.kill()
+                yield from process.wait()
+                raise
+            if process.returncode:
+                command = kwargs.get('args')
+                if command is None:
+                    command = args[0]
+                raise subprocess.CalledProcessError(process.returncode, command, output=output)
+            return output
 
 
 class Remote(Base):
@@ -138,31 +140,30 @@ class Remote(Base):
     def exec(self, command, **kwargs):
         """Run the given command with the configured remote-exec script.
         """
-        with (yield from self.runtime.exec_semaphore):
-            log.debug('remote exec: command=%s, kwargs=%s', command, kwargs)
-            _command = [self.runtime.path['target']['exec']]
+        log.debug('remote exec: command=%s, kwargs=%s', command, kwargs)
+        _command = [self.runtime.path['target']['exec']]
 
-            # export target_host for use in remote-{exec,copy} scripts
-            os_environ = os.environ.copy()
-            os_environ.update(self.environ)
+        # export target_host for use in remote-{exec,copy} scripts
+        os_environ = os.environ.copy()
+        os_environ.update(self.environ)
 
-            # can't pass environment to remote side, so prepend command with
-            # variable declarations
-            if 'env' in kwargs:
-                env = kwargs.pop('env')
-                remote_env = ["%s=%s" % item for item in env.items()]
-                _command.extend(remote_env)
+        # can't pass environment to remote side, so prepend command with
+        # variable declarations
+        if 'env' in kwargs:
+            env = kwargs.pop('env')
+            remote_env = ["%s=%s" % item for item in env.items()]
+            _command.extend(remote_env)
 
-            if 'shell' in kwargs:
-                shell = kwargs.pop('shell')
-                if shell:
-                    _command.extend([os.environ.get('CDIST_REMOTE_SHELL', '/bin/sh') , '-e'])
+        if 'shell' in kwargs:
+            shell = kwargs.pop('shell')
+            if shell:
+                _command.extend([os.environ.get('CDIST_REMOTE_SHELL', '/bin/sh') , '-e'])
 
-            _command.extend(command)
-            code = ' '.join(_command)
-            log.debug('remote exec: code=%s', code)
-            process = yield from asyncio.create_subprocess_shell(code, env=os_environ, **kwargs)
-            return process
+        _command.extend(command)
+        code = ' '.join(_command)
+        log.debug('remote exec: code=%s', code)
+        process = yield from asyncio.create_subprocess_shell(code, env=os_environ, **kwargs)
+        return process
 
     @asyncio.coroutine
     def copy(self, source, destination):
