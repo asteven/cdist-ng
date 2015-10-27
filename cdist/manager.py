@@ -107,7 +107,7 @@ class ObjectManager(object):
         self.log.info('apply: %s', _object)
         _object['code-local'] = yield from self.runtime.run_gencode_local(_object)
         _object['code-remote'] = yield from self.runtime.run_gencode_remote(_object)
-        self.runtime.sync_object(_object, 'code-local', 'code-remote')
+        yield from self.runtime.sync_object(_object, 'code-local', 'code-remote')
         if _object['code-local']:
            yield from self.runtime.run_code_local(_object)
         if _object['code-remote']:
