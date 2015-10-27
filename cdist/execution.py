@@ -34,11 +34,18 @@ class Base(object):
         self.runtime = runtime
         self.environ = runtime.environ.copy()
 
+        # Limit number of concurrent copy and exec processes
+        #self.copy_semaphore = asyncio.Semaphore(20)
+        #self.exec_semaphore = asyncio.Semaphore(20)
+        # Default MaxSessions in sshd_config is 10
+        self.copy_semaphore = self.exec_semaphore = asyncio.Semaphore(10)
+
+
     @asyncio.coroutine
     def call(self, *args, timeout=None, **kwargs):
         """asyncio compatible implementation of subprocess.call
         """
-        with (yield from self.runtime.exec_semaphore):
+        with (yield from self.exec_semaphore):
             process = yield from self.exec(*args, **kwargs)
             try:
                 if timeout is None:
@@ -78,7 +85,7 @@ class Base(object):
         else:
             inputdata = None
 
-        with (yield from self.runtime.exec_semaphore):
+        with (yield from self.exec_semaphore):
             process = yield from self.exec(*args, stdout=subprocess.PIPE, **kwargs)
             try:
                 if timeout is None:
@@ -170,7 +177,7 @@ class Remote(Base):
         """Copy the given source to destination using the configured
         remote-copy script.
         """
-        with (yield from self.runtime.copy_semaphore):
+        with (yield from self.copy_semaphore):
             log.debug('copy: %s -> %s', source, destination)
 
             # export target_host for use in remote-{exec,copy} scripts

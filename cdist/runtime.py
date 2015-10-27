@@ -35,10 +35,6 @@ class Runtime(object):
         self._type_explorers_transferred = []
         self.__target_lock = asyncio.Lock()
 
-        # Limit number of concurrent copy and exec processes
-        self.copy_semaphore = asyncio.Semaphore(20)
-        self.exec_semaphore = asyncio.Semaphore(50)
-
         self.local = Local(self)
         self.remote = Remote(self)
 
