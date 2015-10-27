@@ -9,7 +9,7 @@ class ObjectManager(object):
     def __init__(self, runtime):
         self.runtime = runtime
         self.log = runtime.log
-        self.queue = asyncio.JoinableQueue()
+        self.queue = asyncio.Queue()
         self.pending_objects = set()
         self.realized_objects = set()
         self.objects = {}
