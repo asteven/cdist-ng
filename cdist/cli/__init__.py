@@ -61,6 +61,13 @@ def cdist_command(func):
     for entry_point in entry_point_names:
         entry_points += pkg_resources.iter_entry_points(entry_point)
 
+    # Special handling if we are run as the emulator
+    prog_name = make_str(os.path.basename(
+            sys.argv and sys.argv[0] or __file__))
+    if prog_name.startswith('__'):
+        # inject `emulator` subcommand to handle cdist object creation
+        sys.argv = [sys.argv[0]] + ['emulator', prog_name] + sys.argv[1:]
+
     # Add decorators
     func = click.group()(func)
     func = with_plugins(entry_points)(func)
