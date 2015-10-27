@@ -90,7 +90,8 @@ def main(ctx, explorer, target):
             loop.run_until_complete(_runtime.initialize())
             loop.run_until_complete(_runtime.run_global_explorers())
             for key,value in _target['explorer'].items():
-                click.echo('{0}: {1}'.format(key, value))
+                for line in value.split('\n'):
+                    click.echo('{0}: {1}'.format(key, line))
         except exceptions.CdistError as e:
             log.error(str(e))
             raise
