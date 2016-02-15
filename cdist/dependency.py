@@ -108,7 +108,7 @@ class DependencyDatabase(dict):
                 json.dump(self, fp)
 
     def __repr__(self):
-        return '<{0.name} require:{0[require]} after:{0[after]} before:{0[before]} aauto:{0[auto]}>'.format(self)
+        return '<{0.name} require:{0[require]} after:{0[after]} before:{0[before]} auto:{0[auto]}>'.format(self)
 
     # context manager interface
     def __enter__(self):
