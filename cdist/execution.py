@@ -38,7 +38,7 @@ class Base(object):
         #self.copy_semaphore = asyncio.Semaphore(20)
         #self.exec_semaphore = asyncio.Semaphore(20)
         # Default MaxSessions in sshd_config is 10
-        self.copy_semaphore = self.exec_semaphore = asyncio.Semaphore(10)
+        self.copy_semaphore = self.exec_semaphore = asyncio.Semaphore(5)
 
 
     @asyncio.coroutine
@@ -137,9 +137,10 @@ class Remote(Base):
                 destination_file = os.path.join(destination, f)
                 task = asyncio.async(self.copy(source_file, destination_file))
                 tasks.append(task)
-            if tasks:
-                done, pending = yield from asyncio.wait(tasks)
-                assert not pending
+            #if tasks:
+            #    done, pending = yield from asyncio.wait(tasks)
+            #    assert not pending
+            yield from asyncio.gather(*tasks)
         else:
             yield from self.copy(source, destination)
 

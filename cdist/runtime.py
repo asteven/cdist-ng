@@ -11,6 +11,7 @@ import logging
 from .execution import Local, Remote
 from .core import CdistType, CdistObject
 from . import dependency
+from . import manager
 
 
 class Runtime(object):
@@ -32,7 +33,7 @@ class Runtime(object):
         self.__dependency = None
         self.__object_cache = {}
         self.__type_cache = {}
-        self._type_explorers_transferred = []
+        self._type_explorers_transferred = {}
         self.__target_lock = asyncio.Lock()
 
         self.local = Local(self)
@@ -61,6 +62,7 @@ class Runtime(object):
                     'bin': opj(self.local_session_dir, 'bin'),
                     'explorer': opj(self.local_session_dir, 'conf', 'explorer'),
                     'global': target_path,
+                    'initial-manifest': opj(self.local_session_dir, 'manifest'),
                     'manifest': opj(self.local_session_dir, 'conf', 'manifest'),
                     'object': opj(target_path, 'object'),
                     'session': self.local_session_dir,
@@ -125,6 +127,7 @@ class Runtime(object):
     def create_object(self, cdist_object):
         """Create new object on disk.
         """
+        self.log.info('runtime.create_object: %s', cdist_object)
         object_path = self.get_object_path(cdist_object, 'local')
         os.makedirs(object_path)
         cdist_object.to_dir(object_path)
@@ -183,6 +186,13 @@ class Runtime(object):
             self.__object_cache[object_name] = _object
         return self.__object_cache[object_name]
 
+    def object_exists(self, object_or_name):
+        """Returns True if the given objects exists on the filesystem or False
+        otherwise.
+        """
+        _object_path = self.get_object_path(object_or_name, 'local')
+        return os.path.exists(_object_path)
+
     def list_object_names(self):
         """Return a list of object names"""
         object_base_path = self.path['local']['object']
@@ -206,6 +216,13 @@ class Runtime(object):
         # Create remote-session-dir with sane permissions
         yield from self.remote.mkdir(self.remote_session_dir)
         yield from self.remote.check_call(['chmod', '0700', self.remote_session_dir])
+
+    @asyncio.coroutine
+    def process_objects(self):
+        """Process all objects.
+        """
+        om = manager.ObjectManager(self)
+        yield from om.process()
 
     @asyncio.coroutine
     def finalize(self):
@@ -263,11 +280,13 @@ class Runtime(object):
 
         env = {
             '__object': self.get_object_path(cdist_object, 'remote'),
-            '__object_id': cdist_object['object-id'],
             '__object_name': cdist_object.name,
             '__type_explorer': remote_explorer_path,
             '__explorer': self.path['remote']['explorer'],
         }
+        _type = self.get_type(cdist_object['type'])
+        if not _type['singleton']:
+            env['__object_id'] = cdist_object['object-id']
 
         self.log.debug("Running type explorer '%s' for object %s", explorer_name, cdist_object)
         explorer = os.path.join(remote_explorer_path, explorer_name)
@@ -280,7 +299,10 @@ class Runtime(object):
         the object.
         """
         cdist_type = self.get_type(cdist_object['type'])
-        yield from self.transfer_type_explorers(cdist_type)
+        if not cdist_type.name in self._type_explorers_transferred:
+            self._type_explorers_transferred[cdist_type.name] = asyncio.Event()
+            yield from self.transfer_type_explorers(cdist_type)
+        yield from self._type_explorers_transferred[cdist_type.name].wait()
         yield from self.transfer_object_parameters(cdist_object)
 
         # execute explorers in parallel
@@ -300,16 +322,13 @@ class Runtime(object):
         """Transfer the type explorers for the given type to the target.
         """
         if cdist_type['explorer']:
-            if cdist_type.name in self._type_explorers_transferred:
-                self.log.debug('Skipping retransfer of type explorers for: %s', cdist_type)
-            else:
-                self.log.debug("Transfering type explorers for type: %s", cdist_type)
-                source = self.get_type_path(cdist_type, 'local', 'explorer')
-                destination = self.get_type_path(cdist_type, 'remote', 'explorer')
-                yield from self.remote.transfer(source, destination)
-                yield from self.remote.check_call(
-                    ['chmod', '0700', '%s/*' % destination])
-                self._type_explorers_transferred.append(cdist_type.name)
+            self.log.debug("Transfering type explorers for type: %s", cdist_type)
+            source = self.get_type_path(cdist_type, 'local', 'explorer')
+            destination = self.get_type_path(cdist_type, 'remote', 'explorer')
+            yield from self.remote.transfer(source, destination)
+            yield from self.remote.check_call(
+                ['chmod', '0700', '%s/*' % destination])
+        self._type_explorers_transferred[cdist_type.name].set()
 
     @asyncio.coroutine
     def transfer_object_parameters(self, cdist_object):
@@ -355,8 +374,8 @@ class Runtime(object):
                 os.remove(messages_out)
 
     @asyncio.coroutine
-    def run_initial_manifest(self, initial_manifest=None):
-        manifest = os.path.join(self.path['local']['manifest'], 'init')
+    def run_initial_manifest(self):
+        manifest = self.path['local']['initial-manifest']
 
         env = {
             'PATH': "%s:%s" % (self.path['local']['bin'], os.environ['PATH']),
@@ -367,7 +386,7 @@ class Runtime(object):
         }
 
         self.log.debug('Running initial manifest: %s', manifest)
-        yield from self.local.check_call([manifest], env=env)
+        yield from self.local.check_call([manifest], env=env, shell=True)
 
     @asyncio.coroutine
     def run_type_manifest(self, cdist_object):
@@ -385,10 +404,12 @@ class Runtime(object):
             '__manifest': self.path['local']['manifest'],
             '__explorer': self.path['target']['explorer'],
             '__object': self.get_object_path(cdist_object, 'local'),
-            '__object_id': cdist_object['object-id'],
             '__object_name': cdist_object.name,
             '__type': self.get_type_path(cdist_object['type'], 'local'),
         }
+        _type = self.get_type(cdist_object['type'])
+        if not _type['singleton']:
+            env['__object_id'] = cdist_object['object-id']
 
         self.log.debug("Running type manifest for object %s", cdist_object)
         message_prefix = cdist_object.name
@@ -407,10 +428,12 @@ class Runtime(object):
         env = {
             '__global': self.path['local']['global'],
             '__object': self.get_object_path(cdist_object, 'local'),
-            '__object_id': cdist_object['object-id'],
             '__object_name': cdist_object.name,
             '__type': self.get_type_path(cdist_object['type'], 'local'),
         }
+        _type = self.get_type(cdist_object['type'])
+        if not _type['singleton']:
+            env['__object_id'] = cdist_object['object-id']
 
         self.log.debug("Running gencode-%s for object %s", context, cdist_object)
         message_prefix = cdist_object.name

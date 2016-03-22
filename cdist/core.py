@@ -74,6 +74,8 @@ class CdistType(dict):
                     continue
                 if parameter_type == 'boolean':
                     _type = bool
+                #elif parameter_type in ('required_multiple', 'optional_multiple'):
+                #    _type = list
                 else:
                     _type = str
                 for name in values:
@@ -172,6 +174,18 @@ class CdistObject(dict):
         type_name = object_name.split(os.sep)[0]
         object_id = os.sep.join(object_name.split(os.sep)[1:])
         return type_name, object_id
+
+    @staticmethod
+    def join_name(type_name, object_id):
+        """join_name('__type_name', 'the/object_id') -> '__type_name/the/object_id'
+
+        Join the given type name and object id into a object name.
+
+        """
+        parts = [type_name]
+        if object_id:
+            parts.append(object_id)
+        return os.sep.join(parts)
 
     @staticmethod
     def sanitise_object_id(object_id):

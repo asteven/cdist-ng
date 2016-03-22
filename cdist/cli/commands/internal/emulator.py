@@ -103,7 +103,7 @@ class EmulatorCommand(click.Command):
             try:
                 # go directly to file instead of using CdistObject's api
                 # as that does not support streaming
-                path = self._runtime.get_object_path(cdist_object, 'stdin')
+                path = self._runtime.get_object_path(cdist_object, 'local', 'stdin')
                 with open(path, 'wb') as fd:
                     chunk = self._read_stdin()
                     while chunk:
@@ -127,7 +127,7 @@ class EmulatorCommand(click.Command):
         deps = {
             'require': kwargs.pop('require'),
             'after': kwargs.pop('after'),
-            #'before': kwargs.pop('before'),
+            'before': kwargs.pop('before'),
         }
 
         # Validate object id
@@ -137,18 +137,30 @@ class EmulatorCommand(click.Command):
             object_id = CdistObject.sanitise_object_id(object_id)
             CdistObject.validate_object_id(object_id)
 
-        # TODO: check if object exists with conflicting parameters
 
-        # Instantiate object
-        _object = self._type(object_id=object_id, parameters=kwargs)
+        _object_name = CdistObject.join_name(self._type.name, object_id)
+
+        # Check if object exists with conflicting parameters
+        if self._runtime.object_exists(_object_name):
+            self.log.info('object exists: %s', _object_name)
+            #print('object exists: %s' %  _object_name)
+            _object = self._runtime.get_object(_object_name)
+            if _object['parameter'] != kwargs:
+                self.log.error('%s : %s', _object['parameter'], kwargs)
+                # TODO: more infos in error message
+                raise exceptions.CdistError('Object %s already exists with conflicting parameters' % _object)
+
+        else:
+            # Instantiate new object
+            _object = self._type(object_id=object_id, parameters=kwargs)
+            # Create object on disk
+            self._runtime.create_object(_object)
+
         self.log.debug('object: %s', _object)
 
         # Remember in which manifest the object was defined
         _source = get_env('__cdist_manifest')
         _object['source'].append(_source)
-
-        # Create object on disk
-        self._runtime.create_object(_object)
 
         # Save stdin if any
         self.save_stdin(_object)
@@ -163,6 +175,8 @@ class EmulatorCommand(click.Command):
         __object_name = get_env('__object_name', None)
         if __object_name:
             self.dependency.auto(__object_name, _object.name)
+
+        self._runtime.sync_object(_object)
 
 
 @click.command(name='emulator', add_help_option=False, context_settings=dict(

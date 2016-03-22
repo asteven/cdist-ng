@@ -14,19 +14,29 @@ from cdist import manager
 from cdist.cli.utils import comma_delimited_string_to_set
 
 
+def log(msg):
+    print(msg, flush=True)
+
 
 @asyncio.coroutine
 def configure_target(_runtime):
-    _runtime.log.info('configure_target')
-    yield from _runtime.initialize()
-    yield from _runtime.run_global_explorers()
-    yield from _runtime.run_initial_manifest()
-
-    om = manager.ObjectManager(_runtime)
-    yield from om.process()
-
-    yield from _runtime.finalize()
-    return _runtime
+    try:
+        _runtime.log.info('configure_target')
+        log('initialize')
+        yield from _runtime.initialize()
+        log('run_global_explorers')
+        yield from _runtime.run_global_explorers()
+        log('run_initial_manifest')
+        yield from _runtime.run_initial_manifest()
+        log('process_objects')
+        yield from _runtime.process_objects()
+        log('finalize')
+        yield from _runtime.finalize()
+        log('return')
+        return _runtime
+    except Exception as e:
+        log(str(e))
+        raise e
 
 
 @click.command(name='config')
@@ -65,13 +75,30 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
     # Validate options
     if only_tag and include_tag:
         ctx.fail('Use either \'only-tag\' or \'include-tag\' but not both.')
+    if not only_tag.isdisjoint(exclude_tag):
+        ctx.fail('Options \'only-tag\' and \'exclude-tag\' have conflicting values: %s vs %s' % (only_tag, exclude_tag))
     if not include_tag.isdisjoint(exclude_tag):
         ctx.fail('Options \'include-tag\' and \'exclude-tag\' have conflicting values: %s vs %s' % (include_tag, exclude_tag))
 
-    _session = session.Session()
+
+    tags = {
+        'exclude': exclude_tag,
+        'include': include_tag,
+        'only': only_tag,
+    }
+    log.debug('tags: {0}'.format(tags))
+    # TODO: pass initial manifest as code/string
+    if manifest is not None:
+        manifest_content = manifest.read()
+    else:
+        manifest_content = None
+    _session = session.Session(manifest=manifest_content, tags=tags)
     _session.add_conf_dir(os.path.expanduser('~/vcs/cdist/cdist/conf'))
-    _session.add_conf_dir(os.path.expanduser('~/.cdist'))
+    _session.add_conf_dir(os.path.expanduser('~/.cdist-hpc'))
     _session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
+
+    import pprint
+    pprint.pprint(_session)
 
     # override remote-session-dir for testing
     #_remote_session_dir = tempfile.mkdtemp(prefix='cdist-remote-')
@@ -94,7 +121,7 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
     tasks = []
     for _target in _session.targets:
         _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir, loop=loop)
-        task = asyncio.async(configure_target(_runtime))
+        task = loop.create_task(configure_target(_runtime))
         tasks.append(task)
 
     # Execute the tasks in parallel using asyncio.

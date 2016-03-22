@@ -141,6 +141,19 @@ class ObjectManager(object):
         )
 
     @asyncio.coroutine
+    def print_info(self):
+        while True:
+            print('### queue: %s' % self.queue, flush=True)
+            print('### pending_objects: %s' % self.pending_objects, flush=True)
+            print('### realized_objects: %s' % self.realized_objects, flush=True)
+            #unresolved_dependencies = {}
+            #for n, d in self.unresolved_dependencies.items():
+            #    if d:
+            #        unresolved_dependencies[n] = d
+            #print('### unresolved_dependencies: %s' % unresolved_dependencies, flush=True)
+            yield from asyncio.sleep(1)
+
+    @asyncio.coroutine
     def realize_objects(self):
         tasks = []
         while True:
@@ -150,6 +163,7 @@ class ObjectManager(object):
 
     @asyncio.coroutine
     def process(self):
+        #asyncio.async(self.print_info())
         yield from self.collect_new_objects()
         realize_task = asyncio.async(self.realize_objects())
         yield from self.queue.join()
