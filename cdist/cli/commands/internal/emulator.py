@@ -168,8 +168,8 @@ class EmulatorCommand(click.Command):
         # Register dependencies
         for name in deps['require']:
             self.dependency.require(_object.name, name)
-        #for name in deps['before']:
-        #    self.dependency.before(_object.name, name)
+        for name in deps['before']:
+            self.dependency.before(_object.name, name)
         for name in deps['after']:
             self.dependency.after(_object.name, name)
         __object_name = get_env('__object_name', None)
