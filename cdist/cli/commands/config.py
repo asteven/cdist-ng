@@ -87,7 +87,7 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
         'only': only_tag,
     }
     log.debug('tags: {0}'.format(tags))
-    # TODO: pass initial manifest as code/string
+
     if manifest is not None:
         manifest_content = manifest.read()
     else:
@@ -97,8 +97,8 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
     _session.add_conf_dir(os.path.expanduser('~/.cdist-hpc'))
     _session.add_conf_dir(os.path.expanduser('~/vcs/cdist-ng/conf'))
 
-    import pprint
-    pprint.pprint(_session)
+    #import pprint
+    #pprint.pprint(_session)
 
     # override remote-session-dir for testing
     #_remote_session_dir = tempfile.mkdtemp(prefix='cdist-remote-')
