@@ -1,5 +1,6 @@
 import fnmatch
 import asyncio
+import pprint
 
 from cdist import exceptions
 
@@ -40,6 +41,7 @@ class ObjectManager(object):
         self.dependencies.setdefault(_object.name, set())
         self.unresolved_dependencies.setdefault(_object.name, set())
         deps = self.runtime.get_dependencies(_object)
+        self.log.info('resolve_dependencies: %s', pprint.pformat(deps))
 
         if deps['auto']:
             # The objects (children) that this cdist_object (parent) defined
@@ -47,14 +49,14 @@ class ObjectManager(object):
             # that the parent has so that user defined requirements are
             # fullfilled and processed in the expected order.
             for auto_requirement in self.find_requirements_by_name(deps['auto']):
-                auto_requirement_deps = self.runtime.get_dependencies(auto_requirement.name)
+                auto_requirement_deps = self.runtime.get_dependencies(auto_requirement)
                 for requirement in self.find_requirements_by_name(deps['after']):
-                    requirement_deps = self.runtime.get_dependencies(requirement.name)
+                    requirement_deps = self.runtime.get_dependencies(requirement)
                     requirement_object_all_requirements = requirement_deps['after'] + requirement_deps['auto']
-                    if (requirement.name not in auto_requirement_deps['after']
-                        and auto_requirement.name not in requirement_object_all_requirements):
-                        self.log.debug('Adding %s to %s requirements', requirement.name, auto_requirement)
-                        auto_requirement_deps['after'].append(requirement.name)
+                    if (requirement not in auto_requirement_deps['after']
+                        and auto_requirement not in requirement_object_all_requirements):
+                        self.log.debug('Adding %s to %s requirements', requirement, auto_requirement)
+                        auto_requirement_deps['after'].append(requirement)
             # On the other hand the parent shall depend on all the children
             # it created so that the user can setup dependencies on it as a
             # whole without having to know anything about the parents
@@ -69,8 +71,11 @@ class ObjectManager(object):
             self.events['apply'][_object.name].set()
         else:
             if not deps['require']:
-            # Objects without 'require' dependencies can be prepared
+                # Objects without 'require' dependencies can be prepared
                 self.events['prepare'][_object.name].set()
+            else:
+                self.events['prepare'][_object.name].clear()
+            self.events['apply'][_object.name].clear()
         self.dependencies[_object.name] = dependencies
         self.unresolved_dependencies[_object.name] = unresolved_dependencies
 
@@ -103,6 +108,7 @@ class ObjectManager(object):
 
     @asyncio.coroutine
     def apply(self, event, _object):
+        self.resolve_dependencies(_object)
         yield from event.wait()
         self.log.info('apply: %s', _object)
         _object['code-local'] = yield from self.runtime.run_gencode_local(_object)
