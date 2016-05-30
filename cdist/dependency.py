@@ -23,12 +23,14 @@ class DependencyManager(object):
 
     def __getitem__(self, key):
         """Return a dependency database for the given key"""
-        try:
-            return self.__cache[key]
-        except KeyError:
-            db = DependencyDatabase(self.base_path, key)
-            self.__cache[key] = db
-            return db
+        # FIXME: disabled caching due to concurrent access issues
+        return DependencyDatabase(self.base_path, key)
+        #try:
+        #    return self.__cache[key]
+        #except KeyError:
+        #    db = DependencyDatabase(self.base_path, key)
+        #    self.__cache[key] = db
+        #    return db
 
     def __contains__(self, key):
         db_name = hashlib.md5(key.encode()).hexdigest()
