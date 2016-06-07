@@ -187,14 +187,19 @@ class Remote(Base):
 
             code = '%s %s %s' % (self.runtime.path['target']['copy'], source, destination)
             process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
-            exit_code = yield from process.wait()
-            log.debug('copy exit code: %d', exit_code)
+            output, stderr = yield from process.communicate()
+            if process.returncode:
+                raise subprocess.CalledProcessError(process.returncode, code, output=output, stderr=stderr)
 
 
 class Local(Base):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Limit number of concurrent copy and exec processes
+        self.copy_semaphore = asyncio.Semaphore(20)
+        self.exec_semaphore = asyncio.Semaphore(20)
+
         rtp = self.runtime.path
         self.environ.update({
             '__cdist_local_session': rtp['local']['session'],
