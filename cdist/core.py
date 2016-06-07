@@ -74,8 +74,8 @@ class CdistType(dict):
                     continue
                 if parameter_type == 'boolean':
                     _type = bool
-                #elif parameter_type in ('required_multiple', 'optional_multiple'):
-                #    _type = list
+                elif parameter_type in ('required_multiple', 'optional_multiple'):
+                    _type = list
                 else:
                     _type = str
                 for name in values:
