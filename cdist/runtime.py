@@ -70,6 +70,7 @@ class Runtime(object):
                     'type': opj(self.local_session_dir, 'conf', 'type'),
                 },
                 'remote': {
+                    'conf': opj(self.remote_session_dir, 'conf'),
                     'explorer': opj(self.remote_session_dir, 'conf', 'explorer'),
                     'object': opj(self.remote_session_dir, 'object'),
                     'session': self.remote_session_dir,
@@ -214,8 +215,10 @@ class Runtime(object):
         os.umask(0o077)
 
         # Create remote-session-dir with sane permissions
-        yield from self.remote.mkdir(self.remote_session_dir)
-        yield from self.remote.check_call(['chmod', '0700', self.remote_session_dir])
+        yield from self.remote.mkdir(self.path['remote']['session'])
+        yield from self.remote.check_call(['chmod', '0700', self.path['remote']['session']])
+        yield from self.remote.mkdir(self.path['remote']['conf'])
+        yield from self.remote.mkdir(self.path['remote']['object'])
 
     @asyncio.coroutine
     def process_objects(self):
@@ -459,6 +462,8 @@ class Runtime(object):
         """
         source = self.get_object_path(cdist_object, 'local', 'code-remote')
         destination = self.get_object_path(cdist_object, 'remote', 'code-remote')
+        destination_dir = os.path.dirname(destination)
+        yield from self.remote.mkdir(destination_dir)
         yield from self.remote.transfer(source, destination)
         yield from self.remote.check_call(['chmod', '0700', destination])
 
