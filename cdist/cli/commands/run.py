@@ -8,26 +8,24 @@ import asyncio.subprocess
 import click
 
 
-@asyncio.coroutine
-def run_code(mode, code):
+async def run_code(mode, code):
     if mode == 'exec':
-        process = yield from asyncio.create_subprocess_exec(*code, stdout=asyncio.subprocess.PIPE)
-        stdout, _ = yield from process.communicate()
+        process = await asyncio.create_subprocess_exec(*code, stdout=asyncio.subprocess.PIPE)
+        stdout, _ = await process.communicate()
         return stdout
     elif mode == 'shell':
         cmd = ' '.join(code)
-        process = yield from asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE)
-        stdout, _ = yield from process.communicate()
+        process = await asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE)
+        stdout, _ = await process.communicate()
         return stdout
 
 
-@asyncio.coroutine
-def run(mode, count, code):
+async def run(mode, count, code):
     tasks = [asyncio.async(run_code(mode, code)) for i in range(0, count)]
     print('tasks: {0}'.format(tasks))
     try:
         while tasks:
-            done, pending = yield from asyncio.wait(
+            done, pending = await asyncio.wait(
                 tasks, timeout=1, return_when=asyncio.FIRST_COMPLETED
             )
             print('done: {0}'.format(done))

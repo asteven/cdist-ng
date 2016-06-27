@@ -176,7 +176,7 @@ class EmulatorCommand(click.Command):
         if __object_name:
             self.dependency.auto(__object_name, _object.name)
 
-        self._runtime.sync_object(_object)
+        self._runtime.blocking_sync_object(_object)
 
 
 @click.command(name='emulator', add_help_option=False, context_settings=dict(

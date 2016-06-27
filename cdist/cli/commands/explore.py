@@ -14,24 +14,22 @@ from cdist import runtime
 from cdist.cli.utils import comma_delimited_string_to_set
 
 
-@asyncio.coroutine
-def run_code(mode, code):
+async def run_code(mode, code):
     if mode == 'exec':
-        process = yield from asyncio.create_subprocess_exec(*code, stdout=asyncio.subprocess.PIPE)
-        stdout, _ = yield from process.communicate()
+        process = await asyncio.create_subprocess_exec(*code, stdout=asyncio.subprocess.PIPE)
+        stdout, _ = await process.communicate()
         return stdout
     elif mode == 'shell':
         cmd = ' '.join(code)
-        process = yield from asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE)
-        stdout, _ = yield from process.communicate()
+        process = await asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE)
+        stdout, _ = await process.communicate()
         return stdout
 
 
-@asyncio.coroutine
-def run(tasks, timeout=10):
+async def run(tasks, timeout=10):
     try:
         while tasks:
-            done, pending = yield from asyncio.wait(
+            done, pending = await asyncio.wait(
                 tasks, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
             )
             if not done:

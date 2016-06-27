@@ -18,20 +18,19 @@ def log(msg):
     print(msg, flush=True)
 
 
-@asyncio.coroutine
-def configure_target(_runtime):
+async def configure_target(_runtime):
     try:
         _runtime.log.info('configure_target')
         log('initialize')
-        yield from _runtime.initialize()
+        await _runtime.initialize()
         log('run_global_explorers')
-        yield from _runtime.run_global_explorers()
+        await _runtime.run_global_explorers()
         log('run_initial_manifest')
-        yield from _runtime.run_initial_manifest()
+        await _runtime.run_initial_manifest()
         log('process_objects')
-        yield from _runtime.process_objects()
+        await _runtime.process_objects()
         log('finalize')
-        yield from _runtime.finalize()
+        await _runtime.finalize()
         log('return')
         return _runtime
     except Exception as e:

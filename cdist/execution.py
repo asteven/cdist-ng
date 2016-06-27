@@ -41,37 +41,34 @@ class Base(object):
         self.copy_semaphore = self.exec_semaphore = asyncio.Semaphore(5)
 
 
-    @asyncio.coroutine
-    def call(self, *args, timeout=None, **kwargs):
+    async def call(self, *args, timeout=None, **kwargs):
         """asyncio compatible implementation of subprocess.call
         """
-        with (yield from self.exec_semaphore):
-            process = yield from self.exec(*args, **kwargs)
+        with (await self.exec_semaphore):
+            process = await self.exec(*args, **kwargs)
             try:
                 if timeout is None:
-                    returncode = yield from process.wait()
+                    returncode = await process.wait()
                 else:
-                    task = asyncio.async(process.wait())
-                    returncode = yield from asyncio.wait_for(task, timeout)
+                    task = asyncio.ensure_future(process.wait())
+                    returncode = await asyncio.wait_for(task, timeout)
                 return returncode
             except:
                 process.kill()
-                yield from process.wait()
+                await process.wait()
                 raise
 
-    @asyncio.coroutine
-    def check_call(self, *args, **kwargs):
+    async def check_call(self, *args, **kwargs):
         """asyncio compatible implementation of subprocess.check_call
         """
-        returncode = yield from self.call(*args, **kwargs)
+        returncode = await self.call(*args, **kwargs)
         if returncode:
             command = kwargs.get('args')
             if command is None:
                 command = args[0]
             raise subprocess.CalledProcessError(returncode, command)
 
-    @asyncio.coroutine
-    def check_output(self, *args, timeout=None, **kwargs):
+    async def check_output(self, *args, timeout=None, **kwargs):
         """asyncio compatible implementation of subprocess.check_output
         """
         if 'stdout' in kwargs:
@@ -85,21 +82,21 @@ class Base(object):
         else:
             inputdata = None
 
-        with (yield from self.exec_semaphore):
-            process = yield from self.exec(*args, stdout=subprocess.PIPE, **kwargs)
+        with (await self.exec_semaphore):
+            process = await self.exec(*args, stdout=subprocess.PIPE, **kwargs)
             try:
                 if timeout is None:
-                    output, unused_err = yield from process.communicate(inputdata)
+                    output, unused_err = await process.communicate(inputdata)
                 else:
-                    task = asyncio.async(process.communicate(inputdata))
-                    output, unused_err = yield from asyncio.wait_for(task, timeout)
+                    task = asyncio.ensure_future(process.communicate(inputdata))
+                    output, unused_err = await asyncio.wait_for(task, timeout)
             except subprocess.TimeoutExpired:
                 process.kill()
-                output, unused_err = yield from process.communicate()
+                output, unused_err = await process.communicate()
                 raise subprocess.TimeoutExpired(process.args, timeout, output=output)
             except:
                 process.kill()
-                yield from process.wait()
+                await process.wait()
                 raise
             if process.returncode:
                 command = kwargs.get('args')
@@ -111,41 +108,37 @@ class Base(object):
 
 class Remote(Base):
 
-    @asyncio.coroutine
-    def mkdir(self, path):
+    async def mkdir(self, path):
         """Create directory on the target."""
         log.debug("Remote mkdir: %s", path)
-        yield from self.check_call(["mkdir", "-p", path])
+        await self.check_call(["mkdir", "-p", path])
 
-    @asyncio.coroutine
-    def rmdir(self, path):
+    async def rmdir(self, path):
         """Remove directory on the target."""
         log.debug("Remote rmdir: %s", path)
-        yield from self.check_call(["rm", "-rf",  path])
+        await self.check_call(["rm", "-rf",  path])
 
-    @asyncio.coroutine
-    def transfer(self, source, destination):
+    async def transfer(self, source, destination):
         """Transfer a file or directory to the target."""
         log.debug("Remote transfer: %s -> %s", source, destination)
-        yield from self.rmdir(destination)
+        await self.rmdir(destination)
         if os.path.isdir(source):
-            yield from self.mkdir(destination)
+            await self.mkdir(destination)
             # copy files in parallel
             tasks = []
             for f in glob.glob1(source, '*'):
                 source_file = os.path.join(source, f)
                 destination_file = os.path.join(destination, f)
-                task = asyncio.async(self.copy(source_file, destination_file))
+                task = asyncio.ensure_future(self.copy(source_file, destination_file))
                 tasks.append(task)
             #if tasks:
-            #    done, pending = yield from asyncio.wait(tasks)
+            #    done, pending = await asyncio.wait(tasks)
             #    assert not pending
-            yield from asyncio.gather(*tasks)
+            await asyncio.gather(*tasks)
         else:
-            yield from self.copy(source, destination)
+            await self.copy(source, destination)
 
-    @asyncio.coroutine
-    def exec(self, command, **kwargs):
+    async def exec(self, command, **kwargs):
         """Run the given command with the configured remote-exec script.
         """
         log.debug('remote exec: command=%s, kwargs=%s', command, kwargs)
@@ -170,15 +163,14 @@ class Remote(Base):
         _command.extend(command)
         code = ' '.join(_command)
         log.debug('remote exec: code=%s', code)
-        process = yield from asyncio.create_subprocess_shell(code, env=os_environ, **kwargs)
+        process = await asyncio.create_subprocess_shell(code, env=os_environ, **kwargs)
         return process
 
-    @asyncio.coroutine
-    def copy(self, source, destination):
+    async def copy(self, source, destination):
         """Copy the given source to destination using the configured
         remote-copy script.
         """
-        with (yield from self.copy_semaphore):
+        with (await self.copy_semaphore):
             log.debug('copy: %s -> %s', source, destination)
 
             # export target_host for use in remote-{exec,copy} scripts
@@ -186,8 +178,8 @@ class Remote(Base):
             os_environ.update(self.environ)
 
             code = '%s %s %s' % (self.runtime.path['target']['copy'], source, destination)
-            process = yield from asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
-            output, stderr = yield from process.communicate()
+            process = await asyncio.create_subprocess_shell(code, stdout=asyncio.subprocess.PIPE, env=os_environ)
+            output, stderr = await process.communicate()
             if process.returncode:
                 raise subprocess.CalledProcessError(process.returncode, code, output=output, stderr=stderr)
 
@@ -210,24 +202,17 @@ class Local(Base):
             'CDIST_INTERNAL': 'yes',
         })
 
-    @asyncio.coroutine
-    def mkdir(self, path):
+    async def mkdir(self, path):
         """Create directory on the local host."""
         log.debug("Local mkdir: %s", path)
-        # Make this a generator for API compability
-        yield
         os.makedirs(path, exist_ok=True)
 
-    @asyncio.coroutine
-    def rmdir(self, path):
+    async def rmdir(self, path):
         """Remove directory on the local host."""
         log.debug("Local rmdir: %s", path)
-        # Make this a generator for API compability
-        yield
         shutil.rmtree(path)
 
-    @asyncio.coroutine
-    def exec(self, command, **kwargs):
+    async def exec(self, command, **kwargs):
         """Run the given command locally.
         """
         log.debug('local exec: command=%s, kwargs=%s', command, kwargs)
@@ -250,5 +235,5 @@ class Local(Base):
 
         _command.extend(command)
         code = ' '.join(_command)
-        process = yield from asyncio.create_subprocess_shell(code, env=os_environ, **kwargs)
+        process = await asyncio.create_subprocess_shell(code, env=os_environ, **kwargs)
         return process

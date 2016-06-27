@@ -20,13 +20,12 @@ class ObjectManager(object):
         }
         self.dependencies = {}
         self.unresolved_dependencies = {}
-        #self.collector = asyncio.async(self._collect_new_objects())
+        #self.collector = asyncio.ensure_future(self._collect_new_objects())
 
-    @asyncio.coroutine
-    def collect_new_objects(self):
+    async def collect_new_objects(self):
         # TODO: make this event based
         # TODO: use unix socket or zmq or something for cdist <-> emulator communication
-        for _object in (yield from self.runtime.loop.run_in_executor(None, self.runtime.list_objects)):
+        for _object in (await self.runtime.loop.run_in_executor(None, self.runtime.list_objects)):
             if _object.name not in self.objects:
                 self.add(_object)
 
@@ -97,28 +96,26 @@ class ObjectManager(object):
             if not found:
                 raise exceptions.RequirementNotFoundError(pattern)
 
-    @asyncio.coroutine
-    def prepare(self, event, _object):
+    async def prepare(self, event, _object):
         self.resolve_dependencies(_object)
-        yield from event.wait()
+        await event.wait()
         self.log.info('prepare: %s', _object)
-        yield from self.runtime.run_type_explorers(_object)
-        yield from self.runtime.run_type_manifest(_object)
-        yield from self.collect_new_objects()
+        await self.runtime.run_type_explorers(_object)
+        await self.runtime.run_type_manifest(_object)
+        await self.collect_new_objects()
 
-    @asyncio.coroutine
-    def apply(self, event, _object):
+    async def apply(self, event, _object):
         self.resolve_dependencies(_object)
-        yield from event.wait()
+        await event.wait()
         self.log.info('apply: %s', _object)
-        _object['code-local'] = yield from self.runtime.run_gencode_local(_object)
-        _object['code-remote'] = yield from self.runtime.run_gencode_remote(_object)
-        yield from self.runtime.sync_object(_object, 'code-local', 'code-remote')
+        _object['code-local'] = await self.runtime.run_gencode_local(_object)
+        _object['code-remote'] = await self.runtime.run_gencode_remote(_object)
+        await self.runtime.sync_object(_object, 'code-local', 'code-remote')
         if _object['code-local']:
-           yield from self.runtime.run_code_local(_object)
+           await self.runtime.run_code_local(_object)
         if _object['code-remote']:
-           yield from self.runtime.transfer_code_remote(_object)
-           yield from self.runtime.run_code_remote(_object)
+           await self.runtime.transfer_code_remote(_object)
+           await self.runtime.run_code_remote(_object)
         self.finish(_object)
 
     def finish(self, _object):
@@ -133,21 +130,19 @@ class ObjectManager(object):
         self.pending_objects.remove(_object.name)
         self.realized_objects.add(_object.name)
 
-    @asyncio.coroutine
-    def realize(self, _object):
+    async def realize(self, _object):
         self.log.info('realize: %s', _object)
         self.pending_objects.add(_object.name)
-        yield from self.prepare(
+        await self.prepare(
             self.events['prepare'][_object.name],
             _object,
         )
-        yield from self.apply(
+        await self.apply(
             self.events['apply'][_object.name],
             _object,
         )
 
-    @asyncio.coroutine
-    def print_info(self):
+    async def print_info(self):
         while True:
             print('### queue: %s' % self.queue, flush=True)
             print('### pending_objects: %s' % self.pending_objects, flush=True)
@@ -157,20 +152,18 @@ class ObjectManager(object):
             #    if d:
             #        unresolved_dependencies[n] = d
             #print('### unresolved_dependencies: %s' % unresolved_dependencies, flush=True)
-            yield from asyncio.sleep(1)
+            await asyncio.sleep(1)
 
-    @asyncio.coroutine
-    def realize_objects(self):
+    async def realize_objects(self):
         tasks = []
         while True:
-            _object = yield from self.queue.get()
-            task = asyncio.async(self.realize(_object))
+            _object = await self.queue.get()
+            task = asyncio.ensure_future(self.realize(_object))
             tasks.append(task)
 
-    @asyncio.coroutine
-    def process(self):
-        #asyncio.async(self.print_info())
-        yield from self.collect_new_objects()
-        realize_task = asyncio.async(self.realize_objects())
-        yield from self.queue.join()
+    async def process(self):
+        #asyncio.ensure_future(self.print_info())
+        await self.collect_new_objects()
+        realize_task = asyncio.ensure_future(self.realize_objects())
+        await self.queue.join()
         realize_task.cancel()

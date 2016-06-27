@@ -116,14 +116,13 @@ class Runtime(object):
             object_name = object_or_name
         return self.dependency[object_name]
 
-    @asyncio.coroutine
-    def sync_target(self, *keys):
+    async def sync_target(self, *keys):
         """Sync changes to the target to disk.
         """
         target_path = os.path.join(self.local_session_dir, 'targets', self.target.identifier)
         callback = functools.partial(self.target.to_dir, target_path, keys=keys)
-        with (yield from self.__target_lock):
-            yield from self.loop.run_in_executor(None, callback)
+        with (await self.__target_lock):
+            await self.loop.run_in_executor(None, callback)
 
     def create_object(self, cdist_object):
         """Create new object on disk.
@@ -133,15 +132,20 @@ class Runtime(object):
         os.makedirs(object_path)
         cdist_object.to_dir(object_path)
 
-    @asyncio.coroutine
-    def sync_object(self, cdist_object, *keys):
+    def blocking_sync_object(self, cdist_object, *keys):
         """Sync changes to the cdist object to disk.
         """
         object_path = self.get_object_path(cdist_object, 'local')
-        callback = functools.partial(cdist_object.to_dir, object_path, keys=keys)
+        cdist_object.to_dir(object_path, keys=keys)
+
+    async def sync_object(self, cdist_object, *keys):
+        """Sync changes to the cdist object to disk.
+        """
         # FIXME: do I need to synchronize here?
-        yield from self.loop.run_in_executor(None, callback)
-        #self.loop.call_soon_threadsafe(self.loop.run_in_executor, None, callback)
+        args = [cdist_object]
+        args.extend(keys)
+        await self.loop.run_in_executor(None, self.blocking_sync_object, *args)
+        #self.loop.call_soon_threadsafe(self.loop.run_in_executor, None, self.blocking_sync_object, *args)
 
     def get_type_path(self, type_or_name, context, component=None):
         """Get the absolute path to a type by name or instance.
@@ -207,45 +211,40 @@ class Runtime(object):
             _object = self.get_object(object_name)
             yield _object
 
-    @asyncio.coroutine
-    def initialize(self):
+    async def initialize(self):
         """Initialize this runtime.
         """
         # Setup file permissions using umask
         os.umask(0o077)
 
         # Create remote-session-dir with sane permissions
-        yield from self.remote.mkdir(self.path['remote']['session'])
-        yield from self.remote.check_call(['chmod', '0700', self.path['remote']['session']])
-        yield from self.remote.mkdir(self.path['remote']['conf'])
-        yield from self.remote.mkdir(self.path['remote']['object'])
+        await self.remote.mkdir(self.path['remote']['session'])
+        await self.remote.check_call(['chmod', '0700', self.path['remote']['session']])
+        await self.remote.mkdir(self.path['remote']['conf'])
+        await self.remote.mkdir(self.path['remote']['object'])
 
-    @asyncio.coroutine
-    def process_objects(self):
+    async def process_objects(self):
         """Process all objects.
         """
         om = manager.ObjectManager(self)
-        yield from om.process()
+        await om.process()
 
-    @asyncio.coroutine
-    def finalize(self):
+    async def finalize(self):
         """Finalize and cleanup this runtime.
         """
-        yield from self.sync_target()
+        await self.sync_target()
 
-    @asyncio.coroutine
-    def transfer_global_explorers(self):
+    async def transfer_global_explorers(self):
         """Transfer the global explorers to the target.
         """
-        yield from self.remote.transfer(
+        await self.remote.transfer(
             self.path['local']['explorer'],
             self.path['remote']['explorer']
         )
-        yield from self.remote.check_call(
+        await self.remote.check_call(
             ['chmod', '0700', '%s/*' % self.path['remote']['explorer']])
 
-    @asyncio.coroutine
-    def run_global_explorer(self, name):
+    async def run_global_explorer(self, name):
         """Run the given global explorer and return it's output.
         """
         env = {
@@ -253,30 +252,28 @@ class Runtime(object):
 
         }
         explorer = os.path.join(self.path['remote']['explorer'], name)
-        result = yield from self.remote.check_output([explorer], env=env)
+        result = await self.remote.check_output([explorer], env=env)
         return result.decode('ascii').rstrip()
 
-    @asyncio.coroutine
-    def run_global_explorers(self):
+    async def run_global_explorers(self):
         """Run all global explorers and save their output in the session.
         """
         self.log.debug('Running global explorers')
-        yield from self.transfer_global_explorers()
+        await self.transfer_global_explorers()
         # execute explorers in parallel
         tasks = []
         explorer_names = glob.glob1(self.path['local']['explorer'], '*')
         for name in explorer_names:
-            task = asyncio.async(self.run_global_explorer(name))
+            task = self.loop.create_task(self.run_global_explorer(name))
             task.name = name
             tasks.append(task)
         if tasks:
-            results = yield from asyncio.gather(*tasks)
+            results = await asyncio.gather(*tasks)
             for index,name in enumerate(explorer_names):
                 self.target['explorer'][name] = results[index]
-            yield from self.sync_target('explorer')
+            await self.sync_target('explorer')
 
-    @asyncio.coroutine
-    def run_type_explorer(self, cdist_object, explorer_name):
+    async def run_type_explorer(self, cdist_object, explorer_name):
         """Run the given type explorer for the given object and return it's output.
         """
         remote_explorer_path = self.get_type_path(cdist_object['type'], 'remote', 'explorer')
@@ -293,55 +290,52 @@ class Runtime(object):
 
         self.log.debug("Running type explorer '%s' for object %s", explorer_name, cdist_object)
         explorer = os.path.join(remote_explorer_path, explorer_name)
-        result = yield from self.remote.check_output([explorer], env=env)
+        result = await self.remote.check_output([explorer], env=env)
         return result.decode('ascii').rstrip()
 
-    @asyncio.coroutine
-    def run_type_explorers(self, cdist_object):
+    async def run_type_explorers(self, cdist_object):
         """Run all type explorers for the given object and save their output in
         the object.
         """
         cdist_type = self.get_type(cdist_object['type'])
         if not cdist_type.name in self._type_explorers_transferred:
             self._type_explorers_transferred[cdist_type.name] = asyncio.Event()
-            yield from self.transfer_type_explorers(cdist_type)
-        yield from self._type_explorers_transferred[cdist_type.name].wait()
-        yield from self.transfer_object_parameters(cdist_object)
+            await self.transfer_type_explorers(cdist_type)
+        await self._type_explorers_transferred[cdist_type.name].wait()
+        await self.transfer_object_parameters(cdist_object)
 
         # execute explorers in parallel
         tasks = []
         for name in cdist_object['explorer']:
-            task = asyncio.async(self.run_type_explorer(cdist_object, name))
+            task = self.loop.create_task(self.run_type_explorer(cdist_object, name))
             task.name = name
             tasks.append(task)
         if tasks:
-            results = yield from asyncio.gather(*tasks)
+            results = await asyncio.gather(*tasks)
             for index,name in enumerate(cdist_object['explorer']):
                 cdist_object['explorer'][name] = results[index]
-            yield from self.sync_object(cdist_object, 'explorer')
+            await self.sync_object(cdist_object, 'explorer')
 
-    @asyncio.coroutine
-    def transfer_type_explorers(self, cdist_type):
+    async def transfer_type_explorers(self, cdist_type):
         """Transfer the type explorers for the given type to the target.
         """
         if cdist_type['explorer']:
             self.log.debug("Transfering type explorers for type: %s", cdist_type)
             source = self.get_type_path(cdist_type, 'local', 'explorer')
             destination = self.get_type_path(cdist_type, 'remote', 'explorer')
-            yield from self.remote.transfer(source, destination)
-            yield from self.remote.check_call(
+            await self.remote.transfer(source, destination)
+            await self.remote.check_call(
                 ['chmod', '0700', '%s/*' % destination])
         self._type_explorers_transferred[cdist_type.name].set()
 
-    @asyncio.coroutine
-    def transfer_object_parameters(self, cdist_object):
+    async def transfer_object_parameters(self, cdist_object):
         """Transfer the parameters for the given object to the target.
         """
         if cdist_object['parameter']:
             self.log.debug("Transfering object parameters for object: %s", cdist_object)
             source = self.get_object_path(cdist_object, 'local', 'parameter')
             destination = self.get_object_path(cdist_object, 'remote', 'parameter')
-            yield from self.remote.transfer(source, destination)
+            await self.remote.transfer(source, destination)
 
     @contextlib.contextmanager
     def messages(self, prefix, env):
@@ -376,8 +370,7 @@ class Runtime(object):
             if os.path.exists(messages_out):
                 os.remove(messages_out)
 
-    @asyncio.coroutine
-    def run_initial_manifest(self):
+    async def run_initial_manifest(self):
         manifest = self.path['local']['initial-manifest']
 
         env = {
@@ -389,10 +382,9 @@ class Runtime(object):
         }
 
         self.log.debug('Running initial manifest: %s', manifest)
-        yield from self.local.check_call([manifest], env=env, shell=True)
+        await self.local.check_call([manifest], env=env, shell=True)
 
-    @asyncio.coroutine
-    def run_type_manifest(self, cdist_object):
+    async def run_type_manifest(self, cdist_object):
         """Run the type manifest for the given object.
         """
         manifest = self.get_type_path(cdist_object['type'], 'local', 'manifest')
@@ -417,10 +409,9 @@ class Runtime(object):
         self.log.debug("Running type manifest for object %s", cdist_object)
         message_prefix = cdist_object.name
         with self.messages(message_prefix, env):
-            yield from self.local.check_call([manifest], env=env)
+            await self.local.check_call([manifest], env=env)
 
-    @asyncio.coroutine
-    def _run_gencode(self, cdist_object, context):
+    async def _run_gencode(self, cdist_object, context):
         """Run the gencode-* script for the given object.
         """
         script = self.get_type_path(cdist_object['type'], 'local', 'gencode-%s' % context)
@@ -441,34 +432,30 @@ class Runtime(object):
         self.log.debug("Running gencode-%s for object %s", context, cdist_object)
         message_prefix = cdist_object.name
         with self.messages(message_prefix, env):
-            result = yield from self.local.check_output([script], env=env)
+            result = await self.local.check_output([script], env=env)
             return result.decode('ascii').rstrip()
 
-    @asyncio.coroutine
     def run_gencode_local(self, cdist_object):
         """Run the gencode-local script for the given object.
         """
         return self._run_gencode(cdist_object, 'local')
 
-    @asyncio.coroutine
     def run_gencode_remote(self, cdist_object):
         """Run the gencode-remote script for the given object.
         """
         return self._run_gencode(cdist_object, 'remote')
 
-    @asyncio.coroutine
-    def transfer_code_remote(self, cdist_object):
+    async def transfer_code_remote(self, cdist_object):
         """Transfer the code_remote script for the given object to the target.
         """
         source = self.get_object_path(cdist_object, 'local', 'code-remote')
         destination = self.get_object_path(cdist_object, 'remote', 'code-remote')
         destination_dir = os.path.dirname(destination)
-        yield from self.remote.mkdir(destination_dir)
-        yield from self.remote.transfer(source, destination)
-        yield from self.remote.check_call(['chmod', '0700', destination])
+        await self.remote.mkdir(destination_dir)
+        await self.remote.transfer(source, destination)
+        await self.remote.check_call(['chmod', '0700', destination])
 
-    @asyncio.coroutine
-    def _run_code(self, cdist_object, context):
+    async def _run_code(self, cdist_object, context):
         """Run the code-* script for the given object.
         """
         script = self.get_object_path(cdist_object, context, 'code-%s' % context)
@@ -483,15 +470,13 @@ class Runtime(object):
         }
         self.log.debug("Running code-%s for object %s", context, cdist_object)
         _context = getattr(self, context)
-        yield from _context.check_call([script], env=env, shell=True)
+        return await _context.check_call([script], env=env, shell=True)
 
-    @asyncio.coroutine
     def run_code_local(self, cdist_object):
         """Run the code-local script for the given object.
         """
         return self._run_code(cdist_object, 'local')
 
-    @asyncio.coroutine
     def run_code_remote(self, cdist_object):
         """Run the code-remote script for the given object on the target.
         """
