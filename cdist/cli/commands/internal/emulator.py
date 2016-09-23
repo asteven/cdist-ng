@@ -76,15 +76,25 @@ class EmulatorCommand(click.Command):
         # type specific parameters
         defaults = self._type['parameter']['default']
         for param_name in self._type['parameter']['required']:
-            params.append(click.Option(('--'+ param_name,), required=True, default=defaults.get(param_name, None)))
+            _option = click.Option(('--'+ param_name,), required=True, default=defaults.get(param_name, None))
+            _option.name = param_name
+            params.append(_option)
         for param_name in self._type['parameter']['required_multiple']:
-            params.append(click.Option(('--'+ param_name,), required=True, multiple=True, default=defaults.get(param_name, None)))
+            _option = click.Option(('--'+ param_name,), required=True, multiple=True, default=defaults.get(param_name, None))
+            _option.name = param_name
+            params.append(_option)
         for param_name in self._type['parameter']['optional']:
-            params.append(click.Option(('--'+ param_name,), default=defaults.get(param_name, None)))
+            _option = click.Option(('--'+ param_name,), default=defaults.get(param_name, None))
+            _option.name = param_name
+            params.append(_option)
         for param_name in self._type['parameter']['optional_multiple']:
-            params.append(click.Option(('--'+ param_name,), multiple=True, default=defaults.get(param_name, None)))
+            _option = click.Option(('--'+ param_name,), multiple=True, default=defaults.get(param_name, None))
+            _option.name = param_name
+            params.append(_option)
         for param_name in self._type['parameter']['boolean']:
-            params.append(click.Option(('--'+ param_name,), is_flag=True))
+            _option = click.Option(('--'+ param_name,), is_flag=True)
+            _option.name = param_name
+            params.append(_option)
 
         if not self._type['singleton']:
             params.append(click.Argument(('object_id',), nargs=1))
