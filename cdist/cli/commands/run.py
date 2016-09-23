@@ -21,7 +21,7 @@ async def run_code(mode, code):
 
 
 async def run(mode, count, code):
-    tasks = [asyncio.async(run_code(mode, code)) for i in range(0, count)]
+    tasks = [asyncio.ensure_future(run_code(mode, code)) for i in range(0, count)]
     print('tasks: {0}'.format(tasks))
     try:
         while tasks:
