@@ -176,15 +176,16 @@ class EmulatorCommand(click.Command):
         self.save_stdin(_object)
 
         # Register dependencies
+        son = CdistObject.sanitise_object_name
         for name in deps['require']:
-            self.dependency.require(_object.name, name)
+            self.dependency.require(_object.name, son(name))
         for name in deps['before']:
-            self.dependency.before(_object.name, name)
+            self.dependency.before(_object.name, son(name))
         for name in deps['after']:
-            self.dependency.after(_object.name, name)
+            self.dependency.after(_object.name, son(name))
         __object_name = get_env('__object_name', None)
         if __object_name:
-            self.dependency.auto(__object_name, _object.name)
+            self.dependency.auto(son(__object_name), _object.name)
 
         self._runtime.blocking_sync_object(_object)
 
