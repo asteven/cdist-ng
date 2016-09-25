@@ -212,3 +212,28 @@ class CdistObject(dict):
                 raise exceptions.IllegalObjectIdError(object_id, 'object_id may not contain //')
             if object_id == '.':
                 raise exceptions.IllegalObjectIdError(object_id, 'object_id may not be a .')
+
+    @staticmethod
+    def sanitise_object_name(object_name):
+        """Remove a single leading and trailing slash.
+        """
+        type_name,object_id = CdistObject.split_name(object_name)
+
+        # Allow empty object id for singletons
+        if object_id:
+            # Remove leading slash
+            if object_id[0] == '/':
+                object_id = object_id[1:]
+
+            # Remove trailing slash
+            if object_id[-1] == '/':
+                object_id = object_id[:-1]
+        return CdistObject.join_name(type_name, object_id)
+
+    @staticmethod
+    def validate_object_name(object_name):
+        """Validate the given object_name and raise IllegalObjectIdError if it's not valid.
+        """
+        type_name,object_id = CdistObject.split_name(object_name)
+        CdistObject.validate_object_id(object_id)
+
