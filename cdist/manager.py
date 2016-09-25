@@ -112,10 +112,12 @@ class ObjectManager(object):
         _object['code-remote'] = await self.runtime.run_gencode_remote(_object)
         await self.runtime.sync_object(_object, 'code-local', 'code-remote')
         if _object['code-local']:
-           await self.runtime.run_code_local(_object)
+            self.log.info('apply code-local: %s', _object)
+            await self.runtime.run_code_local(_object)
         if _object['code-remote']:
-           await self.runtime.transfer_code_remote(_object)
-           await self.runtime.run_code_remote(_object)
+            self.log.info('apply code-remote: %s', _object)
+            await self.runtime.transfer_code_remote(_object)
+            await self.runtime.run_code_remote(_object)
         self.finish(_object)
 
     def finish(self, _object):
@@ -147,12 +149,15 @@ class ObjectManager(object):
             print('### queue: %s' % self.queue, flush=True)
             print('### pending_objects: %s' % self.pending_objects, flush=True)
             print('### realized_objects: %s' % self.realized_objects, flush=True)
-            #unresolved_dependencies = {}
-            #for n, d in self.unresolved_dependencies.items():
-            #    if d:
-            #        unresolved_dependencies[n] = d
+            unresolved_dependencies = {}
+            for n, d in self.unresolved_dependencies.items():
+                if d:
+                    unresolved_dependencies[n] = d
+            import pprint
+            print('### unresolved_dependencies:')
+            pprint.pprint(unresolved_dependencies)
             #print('### unresolved_dependencies: %s' % unresolved_dependencies, flush=True)
-            await asyncio.sleep(1)
+            await asyncio.sleep(3)
 
     async def realize_objects(self):
         tasks = []
@@ -162,8 +167,11 @@ class ObjectManager(object):
             tasks.append(task)
 
     async def process(self):
-        #asyncio.ensure_future(self.print_info())
+        _print_info_task = None
+        #_print_info_task = asyncio.ensure_future(self.print_info())
         await self.collect_new_objects()
         realize_task = asyncio.ensure_future(self.realize_objects())
         await self.queue.join()
         realize_task.cancel()
+        if _print_info_task:
+            _print_info_task.cancel()
