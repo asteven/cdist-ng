@@ -435,15 +435,15 @@ class Runtime(object):
             result = await self.local.check_output([script], env=env)
             return result.decode('ascii').rstrip()
 
-    def run_gencode_local(self, cdist_object):
+    async def run_gencode_local(self, cdist_object):
         """Run the gencode-local script for the given object.
         """
-        return self._run_gencode(cdist_object, 'local')
+        return await self._run_gencode(cdist_object, 'local')
 
-    def run_gencode_remote(self, cdist_object):
+    async def run_gencode_remote(self, cdist_object):
         """Run the gencode-remote script for the given object.
         """
-        return self._run_gencode(cdist_object, 'remote')
+        return await self._run_gencode(cdist_object, 'remote')
 
     async def transfer_code_remote(self, cdist_object):
         """Transfer the code_remote script for the given object to the target.
@@ -460,9 +460,6 @@ class Runtime(object):
         """
         script = self.get_object_path(cdist_object, context, 'code-%s' % context)
 
-        if not os.path.isfile(script):
-            return
-
         env = {
             '__object': self.get_object_path(cdist_object, context),
             '__object_id': cdist_object['object-id'],
@@ -472,13 +469,13 @@ class Runtime(object):
         _context = getattr(self, context)
         return await _context.check_call([script], env=env, shell=True)
 
-    def run_code_local(self, cdist_object):
+    async def run_code_local(self, cdist_object):
         """Run the code-local script for the given object.
         """
-        return self._run_code(cdist_object, 'local')
+        return await self._run_code(cdist_object, 'local')
 
-    def run_code_remote(self, cdist_object):
+    async def run_code_remote(self, cdist_object):
         """Run the code-remote script for the given object on the target.
         """
-        return self._run_code(cdist_object, 'remote')
+        return await self._run_code(cdist_object, 'remote')
 
