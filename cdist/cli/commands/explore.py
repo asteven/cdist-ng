@@ -86,12 +86,8 @@ def main(ctx, explorer, target):
         _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir, loop=loop)
         try:
             loop.run_until_complete(_runtime.initialize())
-            loop.run_until_complete(_runtime.run_global_explorers())
+            loop.run_until_complete(_runtime.run_global_explorers(explorer_names=explorer))
             for name,value in _target['explorer'].items():
-                if explorer and name not in explorer:
-                    # FIXME: would be more efficient to only run the requested explorers
-                    #   but that's also much more complicated
-                    continue
                 for line in value.split('\n'):
                     click.echo('{0}: {1}'.format(name, line))
         except exceptions.CdistError as e:

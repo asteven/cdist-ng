@@ -255,14 +255,15 @@ class Runtime(object):
         result = await self.remote.check_output([explorer], env=env)
         return result.decode('ascii').rstrip()
 
-    async def run_global_explorers(self):
+    async def run_global_explorers(self, explorer_names=None):
         """Run all global explorers and save their output in the session.
         """
         self.log.debug('Running global explorers')
         await self.transfer_global_explorers()
         # execute explorers in parallel
         tasks = []
-        explorer_names = glob.glob1(self.path['local']['explorer'], '*')
+        if not explorer_names:
+            explorer_names = glob.glob1(self.path['local']['explorer'], '*')
         for name in explorer_names:
             task = self.loop.create_task(self.run_global_explorer(name))
             task.name = name
