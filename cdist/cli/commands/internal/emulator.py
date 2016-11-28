@@ -60,9 +60,11 @@ class EmulatorCommand(click.Command):
             help='do not apply this object if cdist is run with this tag'))
 
         # dependencies
+        #    envvar='__cdist_require',
+        # FIXME: change envvar to envvar='__cdist_require'. But beware, breaks compat with existing manifests
         params.append(click.Option(('--require',), multiple=True,
             callback=utils.space_delimited_string_to_set,
-            envvar='__cdist_require',
+            envvar='require',
             help='require the given object to be fully realised before running this object'))
         params.append(click.Option(('--after',), multiple=True,
             callback=utils.space_delimited_string_to_set,
