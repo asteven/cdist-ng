@@ -13,6 +13,7 @@ setup(
     install_requires=[
         'Click',
         'click-plugins',
+        'cconfig',
     ],
     entry_points={
         'console_scripts': [
