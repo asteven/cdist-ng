@@ -69,6 +69,7 @@ Installation
 ------------
 
 .. code-block:: shell
+
    # grab the source
    mkdir ~/src
    git clone https://github.com/asteven/cdist-ng.git ~/src/cdist-ng
@@ -84,6 +85,9 @@ Installation
    cdng --help
    # run with example manifest from ./conf/manifest/init
    cdng -v config localhost
+   # which is the same as
+   cdng -v config ssh://localhost
+
 
 .. _session: cdist/session.py
 .. _target: cdist/target.py
