@@ -2,16 +2,21 @@
 
 date +"%T.%N"
 
+#i=0
+#for i in $(seq -w 1 10); do
+#   timeit __file /tmp/cdist-test-file-$i --if-tag foobar --not-if-tag install
+#done
+
+#timeit __file /tmp/cdist-test-file-prolog --if-tag __prolog
+#timeit __file /tmp/cdist-test-file-epilog --if-tag __epilog
+
+#date +"%T.%N"
+#exit 0
+
 i=0
 for i in $(seq -w 1 10); do
-   timeit __file /tmp/cdist-test-file-$i --if-tag foobar --not-if-tag install
+   __file /tmp/cdist-test-file-$i
 done
-
-timeit __file /tmp/cdist-test-file-prolog --if-tag __prolog
-timeit __file /tmp/cdist-test-file-epilog --if-tag __epilog
-
-date +"%T.%N"
-exit 0
 
 prefix="/tmp/file-$__target_host"
 __file "$prefix-a"
