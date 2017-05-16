@@ -5,9 +5,9 @@ set -x
 #   __file /tmp/cdist-test-file-$i
 #done
 
-prefix="/tmp/file"
+prefix="/tmp/file-$__target_host"
 __file "$prefix-a"
-__file "$prefix-b" --after "__file$prefix-a"
+require="" __file "$prefix-b" --after "__file$prefix-a"
 __file "$prefix-c" --after "__file$prefix-a"
 __file "$prefix-d" --before "__file$prefix-b"
 

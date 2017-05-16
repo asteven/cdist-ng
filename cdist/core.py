@@ -92,18 +92,24 @@ class CdistType(dict):
                 ('require', list),
                 ('source', list),
                 ('state', str),
+                ('tags', dict, (
+                    ('if', list),
+                    ('not-if', list),
+                )),
                 ('type', str),
             )
             self.__object_schema = cconfig.Schema(schema_decl)
         return self.__object_schema
 
-    def __call__(self, object_id=None, parameters=None):
+    def __call__(self, object_id=None, parameters=None, tags=None):
         """Create and return a new cdist object. This can be thought of as
         being an instance of this cdist type.
         """
         _object = CdistObject(self.object_schema, type_name=self.name, object_id=object_id)
         if parameters:
             _object['parameter'].update(parameters)
+        if tags:
+            _object['tags'].update(tags)
         return _object
 
     def object_from_dir(self, path):

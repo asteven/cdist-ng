@@ -135,6 +135,12 @@ class EmulatorCommand(click.Command):
         if not if_tag.isdisjoint(not_if_tag):
             raise exceptions.ConflictingTagsError('Options \'if-tag\' and \'not-if-tag\' have conflicting values: %s vs %s' % (if_tag, not_if_tag))
 
+        tags = {
+            'if': if_tag,
+            'not-if': not_if_tag,
+        }
+        self.log.debug('tags: {0}'.format(tags))
+
         # Take dependencies out of kwargs for later processing
         deps = {
             'require': kwargs.pop('require'),
@@ -161,10 +167,14 @@ class EmulatorCommand(click.Command):
                 self.log.error('%s : %s', _object['parameter'], kwargs)
                 # TODO: more infos in error message
                 raise exceptions.CdistError('Object %s already exists with conflicting parameters' % _object)
+            if _object['tags'] != tags:
+                self.log.error('%s : %s', _object['tags'], tags)
+                # TODO: more infos in error message
+                raise exceptions.CdistError('Object %s already exists with conflicting tags' % _object)
 
         else:
             # Instantiate new object
-            _object = self._type(object_id=object_id, parameters=kwargs)
+            _object = self._type(object_id=object_id, parameters=kwargs, tags=tags)
             # Create object on disk
             self._runtime.create_object(_object)
 

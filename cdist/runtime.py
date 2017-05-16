@@ -223,10 +223,10 @@ class Runtime(object):
         await self.remote.mkdir(self.path['remote']['conf'])
         await self.remote.mkdir(self.path['remote']['object'])
 
-    async def process_objects(self):
+    async def process_objects(self, tags=None):
         """Process all objects.
         """
-        om = manager.ObjectManager(self)
+        om = manager.ObjectManager(self, tags=tags)
         await om.process()
 
     async def finalize(self):

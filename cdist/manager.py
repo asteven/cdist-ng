@@ -7,8 +7,9 @@ from cdist import exceptions
 
 class ObjectManager(object):
 
-    def __init__(self, runtime):
+    def __init__(self, runtime, tags=None):
         self.runtime = runtime
+        self.tags = tags
         self.log = runtime.log
         self.queue = asyncio.Queue()
         self.pending_objects = set()

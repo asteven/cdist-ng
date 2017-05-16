@@ -119,7 +119,7 @@ def main(ctx, manifest, only_tag, include_tag, exclude_tag, dry_run, operation_m
     # Create a list of asyncio tasks, one for each runtime.
     tasks = []
     for _target in _session.targets:
-        _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir, loop=loop)
+        _runtime = runtime.Runtime(_target, local_session_dir, remote_session_dir, tags=tags, loop=loop)
         task = loop.create_task(configure_target(_runtime))
         tasks.append(task)
 
