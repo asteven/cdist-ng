@@ -22,10 +22,11 @@ class Runtime(object):
     OBJECT_PREPARED = 'prepared'
     OBJECT_DONE = 'done'
 
-    def __init__(self, target, local_session_dir, remote_session_dir, logger=None, loop=None):
+    def __init__(self, target, local_session_dir, remote_session_dir, tags=None, logger=None, loop=None):
         self.target = target
         self.local_session_dir = local_session_dir
         self.remote_session_dir = remote_session_dir
+        self.tags = tags
         self.log = logger or logging.getLogger('cdist')
         self.loop = loop or asyncio.get_event_loop()
         self.__path = None
@@ -223,10 +224,10 @@ class Runtime(object):
         await self.remote.mkdir(self.path['remote']['conf'])
         await self.remote.mkdir(self.path['remote']['object'])
 
-    async def process_objects(self, tags=None):
+    async def process_objects(self):
         """Process all objects.
         """
-        om = manager.ObjectManager(self, tags=tags)
+        om = manager.ObjectManager(self, tags=self.tags)
         await om.process()
 
     async def finalize(self):
