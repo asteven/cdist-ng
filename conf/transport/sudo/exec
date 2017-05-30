@@ -15,4 +15,4 @@ log "@: $@"
 # escape ' with '"'"'
 code="$(echo "$@" | sed -e "s/'/'\"'\"'/g")"
 # pass the execution up the stack
-exec "$parent/$mode" "sudo sh -c '$code'"
+exec "$parent/exec" "sudo sh -c '$code'"
