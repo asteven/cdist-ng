@@ -97,16 +97,18 @@ class ObjectManager(object):
             if not found:
                 raise exceptions.RequirementNotFoundError(pattern)
 
-    async def prepare(self, event, _object):
+    async def prepare(self, _object):
         self.resolve_dependencies(_object)
+        event = self.events['prepare'][_object.name]
         await event.wait()
         self.log.info('prepare: %s', _object)
         await self.runtime.run_type_explorers(_object)
         await self.runtime.run_type_manifest(_object)
         await self.collect_new_objects()
 
-    async def apply(self, event, _object):
+    async def apply(self, _object):
         self.resolve_dependencies(_object)
+        event = self.events['apply'][_object.name]
         await event.wait()
         self.log.info('apply: %s', _object)
         _object['code-local'] = await self.runtime.run_gencode_local(_object)
@@ -136,14 +138,8 @@ class ObjectManager(object):
     async def realize(self, _object):
         self.log.info('realize: %s', _object)
         self.pending_objects.add(_object.name)
-        await self.prepare(
-            self.events['prepare'][_object.name],
-            _object,
-        )
-        await self.apply(
-            self.events['apply'][_object.name],
-            _object,
-        )
+        await self.prepare(_object)
+        await self.apply(_object)
 
     async def print_info(self):
         while True:
