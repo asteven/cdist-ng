@@ -113,8 +113,6 @@ class Target(dict):
         Parses the target uri into it's parts and saves them in the target dict.
         Populate the transport-stack based on the target uri's scheme.
         """
-        # TODO: test and normalize into valid url that urllib understands
-        # TODO: if it is not a url, if it does not look like a path assume it to be a hostname
         self['url'] = target
         pr = urllib.parse.urlparse(target)
         target = {
