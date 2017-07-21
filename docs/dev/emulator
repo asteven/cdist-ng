@@ -1,0 +1,49 @@
+### what a emulator does ###
+
+- runtime executes inital or type manifest
+- __some-type is a symlink to the emulator
+- emulator is executed for each type definition
+- emulator
+   - create the object on disk
+   - save stdin if any
+   - informs runtime about the new object
+
+
+### thoughts ###
+- the emulator will be executed many, many times so it should be
+   efficient
+- this is a place we may/should optimize for performance
+
+
+--------------------------------------------------------------------------------
+
+
+How could/should the emulator communicate with the rest of the tools?
+
+1) ipc through the file system
+   + what we have now
+   + simple
+   - need to poll for changes
+   - probably not that efficient
+
+2) ipc with zeromq/nanomsg
+   + anything goes
+   - external dependency
+
+3) ipc through (named) pipe
+   + emulator could be a simple shell script (assuming that shell startup cost
+      is lower then python)
+   - will probably not work reliably,
+      messages will be truncated if many emulators try to write to the same
+      pipe at the same time
+
+4) ipc through unix socket
+   + no race conditions, no truncated messages
+   - maybe better of just using zeromq/nanomsg
+
+
+What does the emulator have to communicate anyway?
+- fire 'object-created' event so caller does not have to poll the file system
+   to pick up newly created objects
+- or much more if the objects are processes in the runtime instead of the emulator
+   -> emulator could be a dumb proxy

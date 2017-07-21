@@ -1,0 +1,46 @@
+## runtime
+cdist config
+   --only-tag
+      Only apply objects with the given tag.
+   --include-tag
+      Apply untagged objects and those with the given tag.
+   --exclude-tag
+      Apply all objects except those with the given tag.
+
+- passed to runtime from commands
+- used to filter objects
+   - how to handle untagged dependencies of tagged objects?
+      - treat them as tagged unless they have conflicting tags in which
+         case error out
+
+
+## type
+__some_type
+   --if-tag
+      only apply this object if cdist is run with this tag
+   --not-if-tag
+      do not apply this object if cdist is run with this tag
+
+
+--------------------------------------------------------------------------------
+
+- where to store runtime tags?
+   - in the session dir?
+   - in the target dir?
+
+- where to store type/object tags?
+   - in the object itself?
+   - or with the dependencies?
+      - should this be a general metadata database?
+
+--------------------------------------------------------------------------------
+
+## other ideas/questions
+Could also use this to implement running objects in different phases?
+e.g.
+
+All objects tagged with '__prolog' are run first.
+Normal objects are run here.
+All objects tagged with '__epilog' are run last.
+
+

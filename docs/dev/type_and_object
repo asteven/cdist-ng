@@ -1,0 +1,30 @@
+@see feature/cconfig branch in ~/vcs/cdist
+@see ~/.cdist/cconfig.txt
+
+How should the interaction between CdistType, CdistObject and Runtime work?
+
+CdistType, CdistObject need Runtime to construct absolute paths.
+   - what do type and object need absolute paths for?
+
+
+--------------------------------------------------------------------------------
+
+from cdist.core import CdistType
+import tempfile
+
+t = CdistType.from_dir('/home/sar/.cdist/type/__network_interface')
+o = t('eth0')
+dict.__repr__(o)
+
+_object_dir = tempfile.mkdtemp(prefix='cdist-object-')
+_object_dir
+o.to_dir(_object_dir)
+
+
+o2 = t.object_from_dir(_object_dir)
+dict.__repr__(o2)
+
+
+o3 = t('eth1')
+dict.__repr__(o3)
+
