@@ -1,18 +1,30 @@
---require
-   - require the given object to be fully realised before running me
-      - I can not run at all until it has been realised
-      - this usually means that my explorers depend on something the other
-         object changes
+## Defining objects
 
---after
-   - require the given object to be realised before me
-      - my explorers do not depend on anything the given object changes
-      - my code-{local,remote} do depend on the given object being realised
-         - the code-{local,remote} of the object have to be run before my own
-           code-{local,remote} scripts.
+Cdist should have different kinds of dependencies.
 
---before
-   - require me to be realized before the given object. The opposite of --after
+
+### require
+
+- require the given object to be fully realised before running me
+   - I can not run at all until it has been realised
+   - this usually means that my explorers depend on something the other
+      object changes
+
+Example: get the version of a package that is installed by another object using an explorer.
+
+
+### after
+- require the given object to be realised before me
+   - my explorers do not depend on anything the given object changes
+   - my code-{local,remote} do depend on the given object being realised
+      - the code-{local,remote} of the object have to be run before my own
+        code-{local,remote} scripts.
+
+Example: start a service after the config file is in place
+
+
+### before
+- require me to be realized before the given object. The opposite of --after
 
 
 --------------------------------------------------------------------------------
@@ -33,6 +45,11 @@
 
 
 --------------------------------------------------------------------------------
+
+Nothing interesting below this line.
+
+--------------------------------------------------------------------------------
+
 
 from cdist import core
 from cdist import dependency
